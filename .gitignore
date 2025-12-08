@@ -51,3 +51,6 @@ node_modules/.prisma/
 supabase/.branches/
 supabase/.temp/
 
+# Local AI artifacts
+.claude/
+
