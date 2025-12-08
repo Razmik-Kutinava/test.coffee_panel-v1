@@ -32,71 +32,79 @@ test.coffee_panel-v1/
 └── README.md
 ```
 
-## 🛠️ Быстрый старт
+## 🚀 Быстрый старт
 
-### Требования
+⚠️ **Для Windows ARM64 пользователей:** Обязательно прочитайте [docs/QUICKSTART.md](./docs/QUICKSTART.md)
 
-- Node.js x64 (важно для ARM64 Windows!)
-- npm или yarn
-- Supabase аккаунт
+### Простой запуск (рекомендуется)
 
-### Установка
-
-```bash
-# Клонировать репозиторий
-git clone https://github.com/Razmik-Kutinava/test.coffee_panel-v1.git
-cd test.coffee_panel-v1
-
-# Установить зависимости backend
+```powershell
+# 1. Установите зависимости
 cd backend
 npm install
+.\install-node-x64.ps1  # Важно для ARM64!
 
-# Настроить environment variables
-cp .env.example .env
-# Заполнить .env файл с данными из Supabase
+cd ../frontend
+npm install
 
-# Генерация Prisma Client
-npx prisma generate
+# 2. Настройте backend/.env (см. ниже)
 
-# Применить схему к базе данных
-npx prisma db push
-
-# Запустить backend
-npm run start:dev
+# 3. Запустите всё одной командой
+cd ..
+.\start-all.ps1
 ```
 
-Backend будет доступен на `http://localhost:3001`
+**Готово!** Откройте http://localhost:3000
+
+### Ручная установка
+
+См. подробную инструкцию в [docs/QUICKSTART.md](./docs/QUICKSTART.md)
 
 ## 📚 Документация
 
-Полная документация находится в папке [`docs/`](./docs/).
+### 🎯 Начните здесь
+- 🚀 **[QUICKSTART.md](./docs/QUICKSTART.md)** - Быстрый старт проекта
+- 🐛 **[BUGS_HISTORY.md](./docs/BUGS_HISTORY.md)** - История всех багов и решений
 
 ### Для AI-ассистентов
-Начните с [`docs/MASTER-PROMPT.md`](./docs/MASTER-PROMPT.md) - главный файл с контекстом проекта.
+- [`docs/MASTER-PROMPT.md`](./docs/MASTER-PROMPT.md) - Главный файл с контекстом проекта
 
 ### Для разработчиков
 - [`docs/workflows/add-new-entity.md`](./docs/workflows/add-new-entity.md) - Как добавить новую сущность
 - [`docs/tech-stack/backend-nestjs.md`](./docs/tech-stack/backend-nestjs.md) - NestJS документация
 - [`docs/tech-stack/database-prisma.md`](./docs/tech-stack/database-prisma.md) - Prisma документация
+- [`docs/tech-stack/arm64-compatibility.md`](./docs/tech-stack/arm64-compatibility.md) - ARM64 совместимость
 
 ### Навигация
 См. [`docs/README.md`](./docs/README.md) для полного списка документации.
 
 ## 🔧 Основные команды
 
-### Backend
+### Запуск проекта
+
+```powershell
+# ✅ Рекомендуемый способ (все в одном)
+.\start-all.ps1
+
+# Или раздельно:
+
+# Backend (с x64 Node.js)
+cd backend
+.\start-x64.ps1
+
+# Frontend
+cd frontend
+npm run dev
+```
+
+### Backend разработка
 
 ```bash
 cd backend
 
-# Разработка
-npm run start:dev
-
-# Сборка
-npm run build
-
-# Production
-npm run start:prod
+# ⚠️ На ARM64 Windows НЕ ИСПОЛЬЗУЙТЕ npm run start:dev напрямую!
+# Вместо этого:
+.\start-x64.ps1
 
 # Prisma
 npx prisma generate    # Генерация Prisma Client
@@ -126,15 +134,21 @@ npx prisma db push
 
 ## ⚠️ Важные моменты
 
-### ARM64 Windows Compatibility
+### ⚠️ ARM64 Windows Compatibility
 
-Проект разрабатывается на Windows ARM64 (Snapdragon 8). Для работы с Prisma 5.22.0 требуется:
+Проект разрабатывается на **Windows ARM64** (Snapdragon 8). 
 
-1. **Node.js x64 версия** (не ARM64!)
-2. Использовать скрипт установки: `backend/install-node-x64.ps1`
-3. Или использовать Docker/WSL
+**КРИТИЧЕСКИ ВАЖНО:**
+1. ✅ Установите x64 Node.js: `cd backend; .\install-node-x64.ps1`
+2. ✅ Всегда запускайте через `.\start-all.ps1`
+3. ❌ НЕ запускайте backend через `npm run start:dev` напрямую
 
-Подробнее: [`docs/tech-stack/arm64-compatibility.md`](./docs/tech-stack/arm64-compatibility.md)
+**Почему:** Prisma требует x64 нативные библиотеки, ARM64 Node.js их не поддерживает.
+
+Подробнее: 
+- [`docs/QUICKSTART.md`](./docs/QUICKSTART.md)
+- [`docs/BUGS_HISTORY.md`](./docs/BUGS_HISTORY.md) (см. БАГ #1)
+- [`docs/tech-stack/arm64-compatibility.md`](./docs/tech-stack/arm64-compatibility.md)
 
 ### Prisma Version
 

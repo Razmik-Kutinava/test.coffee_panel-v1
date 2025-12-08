@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { PrismaClient } from '.prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
@@ -27,18 +27,30 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
         log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
       });
       
-      await Promise.race([
-        this.prisma.$connect(),
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 3000)
-        ),
-      ]);
+      // Таймаут подключения (по умолчанию 15 секунд, можно настроить через PRISMA_CONNECT_TIMEOUT)
+      const connectTimeout = parseInt(process.env.PRISMA_CONNECT_TIMEOUT || '15000', 10);
+      this.logger.log(`🔄 Подключение к базе данных (таймаут: ${connectTimeout}ms)...`);
       
-      this.logger.log('✅ Prisma connected successfully');
-      return this.prisma;
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error);
-      this.initError = error;
+      let timeoutId: NodeJS.Timeout | undefined;
+      const connectPromise = this.prisma.$connect();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`Connection timeout after ${connectTimeout}ms. Проверьте настройки DATABASE_URL и доступность базы данных.`));
+        }, connectTimeout);
+      });
+
+      try {
+        await Promise.race([connectPromise, timeoutPromise]);
+        if (timeoutId) clearTimeout(timeoutId);
+        this.logger.log('✅ Prisma connected successfully');
+        return this.prisma;
+      } catch (raceError) {
+        if (timeoutId) clearTimeout(timeoutId);
+        throw raceError;
+      }
+    } catch (error: unknown) {
+      const errorMessage = (error instanceof Error ? error.message : String(error)) || String(error);
+      this.initError = error instanceof Error ? error : new Error(String(error));
       
       if (errorMessage.includes('not a valid Win32 application') || 
           errorMessage.includes('ARM64') ||
@@ -49,10 +61,21 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn('   2. Используйте Docker или WSL');
         this.logger.warn('   3. Используйте Prisma 7+ с Data Proxy/Accelerate');
         this.logger.warn('📌 Приложение запущено, но Prisma запросы будут недоступны');
+      } else if (errorMessage.includes('Connection timeout')) {
+        this.logger.error(`❌ Prisma connection timeout: ${errorMessage}`);
+        this.logger.error('💡 Проверьте:');
+        this.logger.error('   1. Правильность DATABASE_URL в .env файле');
+        this.logger.error('   2. Доступность базы данных Supabase');
+        this.logger.error('   3. Интернет соединение');
+        this.logger.error('   4. Настройки файрвола/сети');
+      } else if (errorMessage.includes('P1000') || errorMessage.includes('Authentication failed')) {
+        this.logger.error(`❌ Prisma authentication error: ${errorMessage}`);
+        this.logger.error('💡 Проверьте учетные данные DATABASE_URL в .env файле');
+        this.logger.error('   См. документацию: backend/SUPABASE_SETUP.md');
       } else {
         this.logger.error(`❌ Prisma connection error: ${errorMessage}`);
       }
-      throw error;
+      throw this.initError;
     }
   }
 
@@ -99,6 +122,12 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.prisma;
   }
 
+  // Публичный метод для получения клиента с гарантией инициализации
+  async client(): Promise<PrismaClient> {
+    await this.ensureInitialized();
+    return this.getClient();
+  }
+
   // Lazy getters - инициализируют Prisma при первом использовании
   // Используем async инициализацию через метод
   async ensureInitialized() {
@@ -116,9 +145,119 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Асинхронные методы для получения моделей с автоматической инициализацией
-  async getUserModel() {
+  async getUserModel(): Promise<PrismaClient['user']> {
     await this.ensureInitialized();
     return this.getClient().user;
+  }
+
+  async getLocationModel(): Promise<PrismaClient['location']> {
+    await this.ensureInitialized();
+    return this.getClient().location;
+  }
+
+  async getProductModel(): Promise<PrismaClient['product']> {
+    await this.ensureInitialized();
+    return this.getClient().product;
+  }
+
+  async getOrderModel(): Promise<PrismaClient['order']> {
+    await this.ensureInitialized();
+    return this.getClient().order;
+  }
+
+  async getPromocodeModel(): Promise<PrismaClient['promocode']> {
+    await this.ensureInitialized();
+    return this.getClient().promocode;
+  }
+
+  async getStaffModel(): Promise<PrismaClient['locationStaff']> {
+    await this.ensureInitialized();
+    return this.getClient().locationStaff;
+  }
+
+  async getModifierGroupModel(): Promise<PrismaClient['modifierGroup']> {
+    await this.ensureInitialized();
+    return this.getClient().modifierGroup;
+  }
+
+  async getModifierOptionModel(): Promise<PrismaClient['modifierOption']> {
+    await this.ensureInitialized();
+    return this.getClient().modifierOption;
+  }
+
+  async getLocationProductModel(): Promise<PrismaClient['locationProduct']> {
+    await this.ensureInitialized();
+    return this.getClient().locationProduct;
+  }
+
+  async getOrderItemModel(): Promise<PrismaClient['orderItem']> {
+    await this.ensureInitialized();
+    return this.getClient().orderItem;
+  }
+
+  async getOrderItemModifierModel(): Promise<PrismaClient['orderItemModifier']> {
+    await this.ensureInitialized();
+    return this.getClient().orderItemModifier;
+  }
+
+  async getOrderStatusHistoryModel(): Promise<PrismaClient['orderStatusHistory']> {
+    await this.ensureInitialized();
+    return this.getClient().orderStatusHistory;
+  }
+
+  async getCategoryModel(): Promise<PrismaClient['category']> {
+    await this.ensureInitialized();
+    return this.getClient().category;
+  }
+
+  async getLocationCategoryModel(): Promise<PrismaClient['locationCategory']> {
+    await this.ensureInitialized();
+    return this.getClient().locationCategory;
+  }
+
+  async getProductModifierGroupModel(): Promise<PrismaClient['productModifierGroup']> {
+    await this.ensureInitialized();
+    return this.getClient().productModifierGroup;
+  }
+
+  async getLocationStaffModel(): Promise<PrismaClient['locationStaff']> {
+    await this.ensureInitialized();
+    return this.getClient().locationStaff;
+  }
+
+  async getPermissionModel(): Promise<PrismaClient['permission']> {
+    await this.ensureInitialized();
+    return this.getClient().permission;
+  }
+
+  async getBroadcastModel(): Promise<PrismaClient['broadcast']> {
+    await this.ensureInitialized();
+    return this.getClient().broadcast;
+  }
+
+  async getBroadcastLogModel(): Promise<PrismaClient['broadcastLog']> {
+    await this.ensureInitialized();
+    return this.getClient().broadcastLog;
+  }
+
+  async getNotificationModel(): Promise<PrismaClient['notification']> {
+    await this.ensureInitialized();
+    return this.getClient().notification;
+  }
+
+  async getBotSessionModel(): Promise<PrismaClient['botSession']> {
+    await this.ensureInitialized();
+    return this.getClient().botSession;
+  }
+
+  async getAuditLogModel(): Promise<PrismaClient['auditLog']> {
+    await this.ensureInitialized();
+    return this.getClient().auditLog;
+  }
+
+  async getPromocodeUsageModel(): Promise<PrismaClient['promocodeUsage']> {
+    await this.ensureInitialized();
+    return this.getClient().promocodeUsage;
   }
 
   // Синхронные геттеры (deprecated - используйте async методы выше)
@@ -146,16 +285,16 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return Promise.resolve();
   }
 
-  $transaction(...args: Parameters<PrismaClient['$transaction']>) {
-    return this.getClient().$transaction(...(args as [any, ...any[]]));
+  $transaction(...args: Parameters<PrismaClient['$transaction']>): ReturnType<PrismaClient['$transaction']> {
+    return this.getClient().$transaction(...args);
   }
 
-  $executeRaw(...args: Parameters<PrismaClient['$executeRaw']>) {
-    return this.getClient().$executeRaw(...(args as [any, ...any[]]));
+  $executeRaw(...args: Parameters<PrismaClient['$executeRaw']>): ReturnType<PrismaClient['$executeRaw']> {
+    return this.getClient().$executeRaw(...args);
   }
 
-  $queryRaw(...args: Parameters<PrismaClient['$queryRaw']>) {
-    return this.getClient().$queryRaw(...(args as [any, ...any[]]));
+  $queryRaw(...args: Parameters<PrismaClient['$queryRaw']>): ReturnType<PrismaClient['$queryRaw']> {
+    return this.getClient().$queryRaw(...args);
   }
 }
 
