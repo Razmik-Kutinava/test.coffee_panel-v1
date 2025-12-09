@@ -3,18 +3,15 @@
   "version": "1.0.0",
   "description": "Coffee Panel - Admin Hub & Real-time Management",
   "private": true,
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "npm run build --workspace=frontend",
-    "dev": "npm run dev --workspace=frontend",
-    "backend": "npm run start:dev --workspace=backend",
-    "frontend": "npm run dev --workspace=frontend"
+    "build": "cd frontend && npm install && npm run build",
+    "build:backend": "cd backend && npm install && npx prisma generate && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run start:dev",
+    "postinstall": "cd backend && npm install && npx prisma generate || true"
   },
   "keywords": [
     "coffee",

@@ -1,26 +1,36 @@
-# Ignore backend completely for Vercel deployment
-backend/
-
 # Ignore docs and scripts
 docs/
 
 # Ignore PS1/BAT scripts (Windows only)
 *.ps1
 *.bat
-НАДЕЖНЫЙ-ЗАПУСК.ps1
-RELIABLE-START.ps1
-start-*.ps1
-start-*.bat
 
-# Ignore documentation (keep only essential README)
-*.md
-!README.md
-!VERCEL_ROOT_DIRECTORY.md
+# Ignore documentation files (except README)
+DEPLOYMENT.md
+VERCEL_SETUP.md
+VERCEL_ROOT_DIRECTORY.md
+VERCEL_FINAL_CHECKLIST.md
+STARTUP-GUIDE.md
+ЗАПУСК.md
+backend/README.md
+backend/SUPABASE_SETUP.md
+backend/INSTALL_NODE_X64.md
 
 # Ignore environment files
 .env
 .env.*
+backend/.env
 
 # Ignore git
 .git/
+
+# Ignore backend dist and node_modules (will be built fresh)
+backend/dist/
+backend/node_modules/
+frontend/node_modules/
+
+# Ignore test files
+backend/test/
+**/*.spec.ts
+**/*.e2e-spec.ts
 

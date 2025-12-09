@@ -4,7 +4,8 @@ import type {
   ModifierGroup, User, Broadcast, LocationStaff, DashboardStats 
 } from '../types';
 
-const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+// В production (Vercel) API на том же домене, в dev - localhost:3001
+const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3001');
 
 export async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBase}${path}`, {
