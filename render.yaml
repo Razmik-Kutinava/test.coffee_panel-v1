@@ -1,4 +1,5 @@
 services:
+  # Backend API (NestJS)
   - type: web
     name: coffee-panel-backend
     runtime: node
@@ -17,4 +18,18 @@ services:
       - key: DIRECT_URL
         sync: false
     healthCheckPath: /
+
+  # Frontend (Static Site)
+  - type: web
+    name: coffee-panel-frontend
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run serve
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    staticPublishPath: dist
 
