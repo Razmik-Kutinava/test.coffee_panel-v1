@@ -11,6 +11,8 @@ import Orders from './pages/Orders';
 import Users from './pages/Users';
 import Marketing from './pages/Marketing';
 import Staff from './pages/Staff';
+import Barista from './pages/Barista';
+import TVBoard from './pages/TVBoard';
 
 // Hooks
 import { 
@@ -168,6 +170,19 @@ export default function App() {
             locations={locationsArr()}
             onRefresh={refetchUsers}
             showToast={showToast}
+          />
+        </Show>
+
+        <Show when={activeTab() === 'barista'}>
+          <Barista
+            locations={locationsArr()}
+            showToast={showToast}
+          />
+        </Show>
+
+        <Show when={activeTab() === 'tvboard'}>
+          <TVBoard
+            locations={locationsArr()}
           />
         </Show>
 

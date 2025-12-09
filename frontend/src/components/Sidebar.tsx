@@ -13,7 +13,7 @@ interface SidebarProps {
   };
 }
 
-const menuItems: Array<{ id: Tab; icon: string; label: string; badge?: boolean }> = [
+const menuItems: Array<{ id: Tab; icon: string; label: string; badge?: boolean; separator?: boolean }> = [
   { id: 'dashboard', icon: '📊', label: 'Дашборд' },
   { id: 'catalog', icon: '📦', label: 'Каталог' },
   { id: 'locations', icon: '🏪', label: 'Точки' },
@@ -21,7 +21,9 @@ const menuItems: Array<{ id: Tab; icon: string; label: string; badge?: boolean }
   { id: 'users', icon: '👥', label: 'Клиенты' },
   { id: 'marketing', icon: '📣', label: 'Маркетинг' },
   { id: 'staff', icon: '👨‍💼', label: 'Персонал' },
-  { id: 'settings', icon: '⚙️', label: 'Настройки' },
+  { id: 'barista', icon: '☕', label: 'Табло баристы', separator: true },
+  { id: 'tvboard', icon: '📺', label: 'TV Борд' },
+  { id: 'settings', icon: '⚙️', label: 'Настройки', separator: true },
 ];
 
 export default function Sidebar(props: SidebarProps) {
@@ -91,48 +93,57 @@ export default function Sidebar(props: SidebarProps) {
         
         <For each={menuItems}>
           {(item) => (
-            <button
-              onClick={() => props.onTabChange(item.id)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                'align-items': 'center',
-                gap: '10px',
-                padding: '10px 12px',
-                'margin-bottom': '2px',
-                background: props.activeTab === item.id 
-                  ? `${theme.colors.primary}15` 
-                  : 'transparent',
-                border: 'none',
-                'border-radius': '8px',
-                cursor: 'pointer',
-                color: props.activeTab === item.id ? theme.colors.primary : theme.colors.textSecondary,
-                'font-size': '14px',
-                'font-weight': props.activeTab === item.id ? '600' : '500',
-                'text-align': 'left',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <span style={{ 
-                'font-size': '16px', 
-                width: '24px', 
-                'text-align': 'center',
-                'flex-shrink': '0',
-              }}>{item.icon}</span>
-              <span style={{ 
-                flex: '1',
-              }}>{item.label}</span>
-              <Show when={item.badge && props.stats?.orders}>
-                <span style={{
-                  background: theme.colors.error,
-                  color: 'white',
-                  'font-size': '10px',
-                  'font-weight': '700',
-                  padding: '2px 6px',
-                  'border-radius': '10px',
-                }}>{props.stats?.orders}</span>
+            <>
+              <Show when={item.separator}>
+                <div style={{
+                  height: '1px',
+                  background: theme.colors.bgHover,
+                  margin: '12px 8px',
+                }} />
               </Show>
-            </button>
+              <button
+                onClick={() => props.onTabChange(item.id)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  'align-items': 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  'margin-bottom': '2px',
+                  background: props.activeTab === item.id 
+                    ? `${theme.colors.primary}15` 
+                    : 'transparent',
+                  border: 'none',
+                  'border-radius': '8px',
+                  cursor: 'pointer',
+                  color: props.activeTab === item.id ? theme.colors.primary : theme.colors.textSecondary,
+                  'font-size': '14px',
+                  'font-weight': props.activeTab === item.id ? '600' : '500',
+                  'text-align': 'left',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span style={{ 
+                  'font-size': '16px', 
+                  width: '24px', 
+                  'text-align': 'center',
+                  'flex-shrink': '0',
+                }}>{item.icon}</span>
+                <span style={{ 
+                  flex: '1',
+                }}>{item.label}</span>
+                <Show when={item.badge && props.stats?.orders}>
+                  <span style={{
+                    background: theme.colors.error,
+                    color: 'white',
+                    'font-size': '10px',
+                    'font-weight': '700',
+                    padding: '2px 6px',
+                    'border-radius': '10px',
+                  }}>{props.stats?.orders}</span>
+                </Show>
+              </button>
+            </>
           )}
         </For>
       </nav>

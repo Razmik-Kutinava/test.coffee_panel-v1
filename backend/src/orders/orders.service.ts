@@ -1,12 +1,16 @@
-﻿import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, BadRequestException, NotFoundException, Inject, forwardRef, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderStatus, PaymentStatus, PromocodeScope } from '@prisma/client';
+import { OrdersGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly ordersGateway?: OrdersGateway,
+  ) {}
 
   async create(dto: CreateOrderDto) {
     const client = await this.prisma.client();
@@ -112,6 +116,11 @@ export class OrdersService {
       });
     }
 
+    // Notify via WebSocket
+    if (this.ordersGateway) {
+      this.ordersGateway.notifyNewOrder(dto.locationId, order);
+    }
+
     return order;
   }
 
@@ -178,7 +187,76 @@ export class OrdersService {
       },
     });
 
+    // Notify via WebSocket
+    if (this.ordersGateway) {
+      this.ordersGateway.notifyOrderStatusChanged(order.locationId, updated);
+
+      // Special notifications for TV Board
+      if (dto.status === OrderStatus.ready) {
+        this.ordersGateway.notifyOrderReady(order.locationId, {
+          id: updated.id,
+          orderNumber: updated.orderNumber,
+          customerName: updated.customerName || (updated.user as any)?.telegramFirstName,
+        });
+      }
+
+      if (dto.status === OrderStatus.completed) {
+        this.ordersGateway.notifyOrderCompleted(order.locationId, id);
+      }
+
+      // Update TV Board data
+      await this.updateTVBoard(order.locationId);
+    }
+
     return updated;
+  }
+
+  // Helper method to update TV Board
+  private async updateTVBoard(locationId: string) {
+    if (!this.ordersGateway) return;
+
+    const client = await this.prisma.client();
+
+    const preparing = await client.order.findMany({
+      where: {
+        locationId,
+        status: { in: [OrderStatus.accepted, OrderStatus.preparing] },
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        customerName: true,
+        user: { select: { telegramFirstName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const ready = await client.order.findMany({
+      where: {
+        locationId,
+        status: OrderStatus.ready,
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        customerName: true,
+        user: { select: { telegramFirstName: true } },
+      },
+      orderBy: { readyAt: 'desc' },
+    });
+
+    this.ordersGateway.notifyTVBoardUpdate(locationId, {
+      preparing: preparing.map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customerName: o.customerName || o.user?.telegramFirstName || 'Гость',
+      })),
+      ready: ready.map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customerName: o.customerName || o.user?.telegramFirstName || 'Гость',
+      })),
+    });
   }
 
   async updatePaymentStatus(id: string, paymentStatus: PaymentStatus) {

@@ -12,10 +12,14 @@ import { ModifierGroupsModule } from './modifier-groups/modifier-groups.module';
 import { ModifierOptionsModule } from './modifier-options/modifier-options.module';
 import { BroadcastsModule } from './broadcasts/broadcasts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { WebsocketModule } from './websocket/websocket.module';
+import { BaristaModule } from './barista/barista.module';
+import { TVBoardModule } from './tv-board/tv-board.module';
 
 @Module({
   imports: [
     PrismaModule,
+    WebsocketModule,
     LocationsModule,
     ProductsModule,
     OrdersModule,
@@ -26,6 +30,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ModifierOptionsModule,
     BroadcastsModule,
     DashboardModule,
+    BaristaModule,
+    TVBoardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

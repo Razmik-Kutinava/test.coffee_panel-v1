@@ -183,7 +183,7 @@ export interface DashboardStats {
   revenueByLocation: Array<{ name: string; revenue: number; orders: number }>;
 }
 
-export type Tab = 'dashboard' | 'catalog' | 'locations' | 'orders' | 'users' | 'marketing' | 'staff' | 'settings';
+export type Tab = 'dashboard' | 'catalog' | 'locations' | 'orders' | 'users' | 'marketing' | 'staff' | 'barista' | 'tvboard' | 'settings';
 export type CatalogTab = 'categories' | 'products' | 'modifiers';
 export type MarketingTab = 'promocodes' | 'broadcasts';
 
