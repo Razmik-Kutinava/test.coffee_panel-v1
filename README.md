@@ -1,238 +1,210 @@
-# Coffee Panel v1
+# ☕ Coffee Panel v1.0
 
-Современная система управления для кофейного бизнеса с REST API backend и планируемым SolidJS frontend.
-
-## 🚀 Технологический стек
-
-### Backend
-- **NestJS 10** - Прогрессивный Node.js framework
-- **Prisma 5.22.0** - Type-safe ORM
-- **Supabase PostgreSQL** - Managed база данных
-- **TypeScript** - Строгая типизация
-
-### Frontend (в разработке)
-- **SolidJS** - Реактивный UI framework
-- **TypeScript** - Строгая типизация
-- **Vercel** - Deployment (планируется)
-
-## 📁 Структура проекта
-
-```
-test.coffee_panel-v1/
-├── backend/              # NestJS backend API
-│   ├── prisma/          # Prisma schema и миграции
-│   ├── src/             # Исходный код
-│   └── package.json
-├── frontend/            # SolidJS frontend (планируется)
-├── docs/                # Полная AI-документация
-│   ├── MASTER-PROMPT.md # ⭐ Главный файл для AI
-│   ├── tech-stack/      # Документация технологий
-│   ├── workflows/        # Процессы разработки
-│   └── team/            # Роли команды
-└── README.md
-```
-
-## 🚀 Быстрый старт
-
-⚠️ **Для Windows ARM64 пользователей:** Обязательно прочитайте [docs/QUICKSTART.md](./docs/QUICKSTART.md)
-
-### Простой запуск (рекомендуется)
-
-```powershell
-# 1. Установите зависимости
-cd backend
-npm install
-.\install-node-x64.ps1  # Важно для ARM64!
-
-cd ../frontend
-npm install
-
-# 2. Настройте backend/.env (см. ниже)
-
-# 3. Запустите всё одной командой
-cd ..
-.\start-all.ps1
-```
-
-**Готово!** Откройте http://localhost:3000
-
-### Ручная установка
-
-См. подробную инструкцию в [docs/QUICKSTART.md](./docs/QUICKSTART.md)
-
-## 📚 Документация
-
-### 🎯 Начните здесь
-- 🚀 **[QUICKSTART.md](./docs/QUICKSTART.md)** - Быстрый старт проекта
-- 🐛 **[BUGS_HISTORY.md](./docs/BUGS_HISTORY.md)** - История всех багов и решений
-
-### Для AI-ассистентов
-- [`docs/MASTER-PROMPT.md`](./docs/MASTER-PROMPT.md) - Главный файл с контекстом проекта
-
-### Для разработчиков
-- [`docs/workflows/add-new-entity.md`](./docs/workflows/add-new-entity.md) - Как добавить новую сущность
-- [`docs/tech-stack/backend-nestjs.md`](./docs/tech-stack/backend-nestjs.md) - NestJS документация
-- [`docs/tech-stack/database-prisma.md`](./docs/tech-stack/database-prisma.md) - Prisma документация
-- [`docs/tech-stack/arm64-compatibility.md`](./docs/tech-stack/arm64-compatibility.md) - ARM64 совместимость
-
-### Навигация
-См. [`docs/README.md`](./docs/README.md) для полного списка документации.
-
-## 🔧 Основные команды
-
-### Запуск проекта
-
-```powershell
-# ✅ Рекомендуемый способ (все в одном)
-.\start-all.ps1
-
-# Или раздельно:
-
-# Backend (с x64 Node.js)
-cd backend
-.\start-x64.ps1
-
-# Frontend
-cd frontend
-npm run dev
-```
-
-### Backend разработка
-
-```bash
-cd backend
-
-# ⚠️ На ARM64 Windows НЕ ИСПОЛЬЗУЙТЕ npm run start:dev напрямую!
-# Вместо этого:
-.\start-x64.ps1
-
-# Prisma
-npx prisma generate    # Генерация Prisma Client
-npx prisma db push     # Применить схему к БД
-npx prisma studio      # GUI для просмотра данных
-
-# Создать новый ресурс
-npx @nestjs/cli g resource products
-```
-
-## 🗄️ База данных
-
-Проект использует **Supabase PostgreSQL** с Prisma ORM.
-
-### Схема базы данных
-
-Схема определяется в `backend/prisma/schema.prisma`. После изменения схемы:
-
-```bash
-npx prisma generate
-npx prisma db push
-```
-
-### Текущие модели
-
-- `User` - Пользователи системы
-
-## ⚠️ Важные моменты
-
-### ⚠️ ARM64 Windows Compatibility
-
-Проект разрабатывается на **Windows ARM64** (Snapdragon 8). 
-
-**КРИТИЧЕСКИ ВАЖНО:**
-1. ✅ Установите x64 Node.js: `cd backend; .\install-node-x64.ps1`
-2. ✅ Всегда запускайте через `.\start-all.ps1`
-3. ❌ НЕ запускайте backend через `npm run start:dev` напрямую
-
-**Почему:** Prisma требует x64 нативные библиотеки, ARM64 Node.js их не поддерживает.
-
-Подробнее: 
-- [`docs/QUICKSTART.md`](./docs/QUICKSTART.md)
-- [`docs/BUGS_HISTORY.md`](./docs/BUGS_HISTORY.md) (см. БАГ #1)
-- [`docs/tech-stack/arm64-compatibility.md`](./docs/tech-stack/arm64-compatibility.md)
-
-### Prisma Version
-
-**Используется:** Prisma 5.22.0  
-**НЕ использовать:** Prisma 7 (проблемы с ARM64 Windows)
-
-## 🚫 Запрещенные практики
-
-- ❌ Использование `any` типа
-- ❌ Default exports
-- ❌ Прямое создание `PrismaClient` (использовать `PrismaService`)
-- ❌ Хардкод секретов в коде
-- ❌ Коммит `.env` файла
-- ❌ Использование Prisma 7
-
-## 📝 Workflow: Добавление новой сущности
-
-1. Добавить модель в `backend/prisma/schema.prisma`
-2. Выполнить `npx prisma generate` и `npx prisma db push`
-3. Создать NestJS модуль: `npx @nestjs/cli g resource name`
-4. Обновить Service для работы с Prisma
-5. Обновить DTO вручную с валидацией
-
-Подробнее: [`docs/workflows/add-new-entity.md`](./docs/workflows/add-new-entity.md)
-
-## 🧪 Тестирование
-
-```bash
-# Unit тесты
-npm test
-
-# E2E тесты
-npm run test:e2e
-
-# Coverage
-npm run test:cov
-```
-
-## 🔐 Environment Variables
-
-Создайте `.env` файл в `backend/`:
-
-```env
-# Supabase
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."
-SUPABASE_URL="https://..."
-SUPABASE_ANON_KEY="..."
-SUPABASE_SERVICE_ROLE_KEY="..."
-
-# NestJS
-PORT=3001
-NODE_ENV=development
-JWT_SECRET="your-secret-key"
-FRONTEND_URL="http://localhost:3000"
-```
-
-Подробнее: [`docs/tech-stack/environment-setup.md`](./docs/tech-stack/environment-setup.md)
-
-## 🤝 Вклад в проект
-
-1. Fork репозитория
-2. Создать feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit изменения (`git commit -m 'Add some AmazingFeature'`)
-4. Push в branch (`git push origin feature/AmazingFeature`)
-5. Открыть Pull Request
-
-## 📄 Лицензия
-
-UNLICENSED
-
-## 👥 Авторы
-
-- **Razmik Kutinava** - [GitHub](https://github.com/Razmik-Kutinava)
-
-## 🔗 Связанные ресурсы
-
-- [NestJS Documentation](https://docs.nestjs.com/)
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [Supabase Documentation](https://supabase.com/docs)
-- [SolidJS Documentation](https://www.solidjs.com/docs/latest)
+**Admin Hub** для управления сетью кофеен с real-time функциями для баристов и TV-бордами.
 
 ---
 
-**Версия:** 0.0.1  
-**Статус:** В разработке
+## 🎯 Возможности
 
+### 🖥️ **Admin Hub (Web)**
+- 📊 **Dashboard** - статистика продаж, заказов, пользователей
+- 🛍️ **Каталог** - управление категориями, товарами, модификаторами
+- 📍 **Точки** - управление локациями кофеен
+- 📦 **Заказы** - просмотр и управление всеми заказами
+- 👥 **Клиенты** - база пользователей и статистика
+- 🎁 **Маркетинг** - промокоды, рассылки
+- 👨‍💼 **Персонал** - управление сотрудниками
+
+### ☕ **Barista Dashboard (Web)**
+- Real-time отображение активных заказов
+- Управление статусами заказов
+- Управление складом товаров
+- WebSocket для мгновенных обновлений
+
+### 📺 **TV-Board (Web)**
+- Публичный экран для клиентов
+- Отображение готовящихся и готовых заказов
+- Анимации и звуковые уведомления
+- Real-time обновления
+
+---
+
+## 🚀 Tech Stack
+
+- **Backend:** NestJS + Prisma ORM + PostgreSQL (Supabase)
+- **Frontend:** Solid.js + TypeScript
+- **Real-time:** Socket.io (WebSocket)
+- **Deployment:** Vercel (Frontend) + Railway (Backend)
+
+---
+
+## 🛠️ Локальная разработка
+
+### Требования
+- Node.js 24.x
+- PostgreSQL (или Supabase)
+- PowerShell (для Windows)
+
+### Быстрый старт
+
+1. **Клонируйте репозиторий:**
+```bash
+git clone https://github.com/Razmik-Kutinava/test.coffee_panel-v1.git
+cd test.coffee_panel-v1
+```
+
+2. **Настройте переменные окружения:**
+```bash
+# Backend
+cd backend
+cp .env.example .env
+# Отредактируйте .env (DATABASE_URL, SUPABASE_URL и т.д.)
+cd ..
+```
+
+3. **Запустите проект:**
+```powershell
+# Windows PowerShell
+.\RELIABLE-START.ps1
+```
+
+Или вручную:
+```bash
+# Terminal 1 - Backend
+cd backend
+npm install
+npx prisma generate
+npx prisma migrate dev
+npm run start:dev
+
+# Terminal 2 - Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+4. **Откройте в браузере:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+
+---
+
+## 📦 Deployment
+
+### Быстрый деплой:
+
+1. **Backend → Railway** (или Render)
+   - Подключите GitHub репозиторий
+   - Настройте переменные окружения (`DATABASE_URL`, `PORT`)
+   - Deploy автоматически
+
+2. **Frontend → Vercel**
+   - Подключите GitHub репозиторий
+   - Добавьте `VITE_API_URL` в Environment Variables
+   - Deploy автоматически
+
+**Подробная инструкция:** см. [`DEPLOYMENT.md`](./DEPLOYMENT.md) и [`VERCEL_SETUP.md`](./VERCEL_SETUP.md)
+
+---
+
+## 📚 Документация
+
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md) - Полное руководство по деплою
+- [`VERCEL_SETUP.md`](./VERCEL_SETUP.md) - Настройка Vercel
+- [`docs/QUICKSTART.md`](./docs/QUICKSTART.md) - Быстрый старт разработки
+- [`docs/specs/PRD_MASTER.md`](./docs/specs/PRD_MASTER.md) - Полная спецификация проекта
+
+---
+
+## 🏗️ Структура проекта
+
+```
+test.coffee_panel-v1/
+├── backend/              # NestJS API + WebSocket
+│   ├── src/
+│   │   ├── barista/     # Barista Dashboard API
+│   │   ├── tv-board/    # TV-Board API
+│   │   ├── websocket/   # WebSocket Gateway
+│   │   ├── categories/  # CRUD Categories
+│   │   ├── products/    # CRUD Products
+│   │   ├── orders/      # CRUD Orders
+│   │   ├── locations/   # CRUD Locations
+│   │   ├── users/       # CRUD Users
+│   │   └── ...
+│   ├── prisma/
+│   │   └── schema.prisma
+│   └── package.json
+│
+├── frontend/             # Solid.js Admin Hub
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── Catalog.tsx
+│   │   │   ├── Barista.tsx      # Barista Dashboard
+│   │   │   ├── TVBoard.tsx      # TV-Board
+│   │   │   └── ...
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── App.tsx
+│   └── package.json
+│
+├── docs/                 # Документация
+├── vercel.json          # Vercel config
+├── .vercelignore        # Vercel ignore
+├── DEPLOYMENT.md        # Deployment guide
+└── README.md            # Этот файл
+```
+
+---
+
+## 🎨 Скриншоты
+
+### Admin Hub - Dashboard
+![Dashboard](https://via.placeholder.com/800x400?text=Dashboard+Screenshot)
+
+### Barista Dashboard
+![Barista](https://via.placeholder.com/800x400?text=Barista+Dashboard+Screenshot)
+
+### TV-Board
+![TVBoard](https://via.placeholder.com/800x400?text=TV-Board+Screenshot)
+
+---
+
+## 🤝 Contributing
+
+1. Fork репозиторий
+2. Создайте feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit изменения (`git commit -m 'feat: add amazing feature'`)
+4. Push в branch (`git push origin feature/amazing-feature`)
+5. Откройте Pull Request
+
+---
+
+## 📝 License
+
+MIT License - см. [LICENSE](./LICENSE)
+
+---
+
+## 👤 Author
+
+**Razmik Giurdzhian**  
+GitHub: [@Razmik-Kutinava](https://github.com/Razmik-Kutinava)
+
+---
+
+## 🔗 Links
+
+- **Production Frontend:** https://test-coffee-panel-v1.vercel.app
+- **Production Backend:** (будет после деплоя на Railway)
+- **GitHub:** https://github.com/Razmik-Kutinava/test.coffee_panel-v1
+
+---
+
+## ⚠️ Важные замечания
+
+- 🤖 **Telegram Bot** - в разработке (отдельно)
+- 📱 **Client App (Flutter)** - в разработке (отдельно)
+- 💳 **Payments** - интеграция запланирована для v2.0
+
+**Admin Hub полностью функционален и готов к продакшену!** 🎉

@@ -1,0 +1,16 @@
+{
+  "name": "coffee-panel-v1",
+  "version": "1.0.0",
+  "description": "Coffee Panel - Admin Hub & Real-time Management",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "start": "cd frontend && npm run start"
+  },
+  "keywords": ["coffee", "admin", "dashboard", "solid-js"],
+  "author": "",
+  "license": "MIT"
+}
+

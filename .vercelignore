@@ -1,0 +1,27 @@
+# Ignore backend completely for Vercel deployment
+backend/
+backend
+
+# Ignore docs and scripts
+docs/
+*.ps1
+*.bat
+*.md
+
+# Ignore node_modules (will be installed fresh)
+node_modules/
+frontend/node_modules/
+
+# Ignore environment files (use Vercel Dashboard for env vars)
+.env
+.env.*
+backend/.env
+
+# Ignore build artifacts
+backend/dist/
+backend/node_modules/
+
+# Ignore git
+.git/
+.gitignore
+
