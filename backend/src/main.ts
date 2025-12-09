@@ -23,11 +23,18 @@ async function bootstrap() {
   );
 
   // Разрешаем CORS для фронтенда
+  // В production разрешаем все origins (или конкретный Vercel URL)
+  const allowedOrigins = process.env.FRONTEND_URL 
+    ? [process.env.FRONTEND_URL, 'http://localhost:3000']
+    : process.env.NODE_ENV === 'production'
+    ? '*' // Разрешаем все в production
+    : 'http://localhost:3000';
+  
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: false,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   const logger = new Logger('Bootstrap');
