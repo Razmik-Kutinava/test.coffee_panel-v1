@@ -3,14 +3,27 @@
   "version": "1.0.0",
   "description": "Coffee Panel - Admin Hub & Real-time Management",
   "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "cd frontend && npm install && npm run build",
-    "dev": "cd frontend && npm run dev",
-    "start": "cd frontend && npm run start"
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
   },
-  "keywords": ["coffee", "admin", "dashboard", "solid-js"],
-  "author": "",
+  "scripts": {
+    "build": "npm run build --workspace=frontend",
+    "dev": "npm run dev --workspace=frontend",
+    "backend": "npm run start:dev --workspace=backend",
+    "frontend": "npm run dev --workspace=frontend"
+  },
+  "keywords": [
+    "coffee",
+    "admin",
+    "dashboard",
+    "solid-js",
+    "nestjs"
+  ],
+  "author": "Razmik Giurdzhian",
   "license": "MIT"
 }
 
