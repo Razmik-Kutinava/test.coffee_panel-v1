@@ -8,18 +8,10 @@
   },
   "scripts": {
     "build": "cd frontend && npm install && npm run build",
-    "build:backend": "cd backend && npm install && npx prisma generate && npm run build",
     "dev": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && npm run start:dev",
-    "postinstall": "cd backend && npm install && npx prisma generate || true"
+    "backend": "cd backend && npm run start:dev"
   },
-  "keywords": [
-    "coffee",
-    "admin",
-    "dashboard",
-    "solid-js",
-    "nestjs"
-  ],
+  "keywords": ["coffee", "admin", "dashboard", "solid-js"],
   "author": "Razmik Giurdzhian",
   "license": "MIT"
 }

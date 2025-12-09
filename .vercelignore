@@ -1,36 +1,15 @@
-# Ignore docs and scripts
+# Ignore backend for now (will deploy separately)
+backend/
+
+# Ignore docs
 docs/
 
-# Ignore PS1/BAT scripts (Windows only)
+# Ignore scripts
 *.ps1
 *.bat
+*.md
+!README.md
 
-# Ignore documentation files (except README)
-DEPLOYMENT.md
-VERCEL_SETUP.md
-VERCEL_ROOT_DIRECTORY.md
-VERCEL_FINAL_CHECKLIST.md
-STARTUP-GUIDE.md
-ЗАПУСК.md
-backend/README.md
-backend/SUPABASE_SETUP.md
-backend/INSTALL_NODE_X64.md
-
-# Ignore environment files
+# Ignore env files
 .env
 .env.*
-backend/.env
-
-# Ignore git
-.git/
-
-# Ignore backend dist and node_modules (will be built fresh)
-backend/dist/
-backend/node_modules/
-frontend/node_modules/
-
-# Ignore test files
-backend/test/
-**/*.spec.ts
-**/*.e2e-spec.ts
-
