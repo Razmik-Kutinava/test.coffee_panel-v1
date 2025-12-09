@@ -30,7 +30,7 @@ interface OrderItem {
   comment?: string;
 }
 
-// API URL
+// API URL - автоматически определяет протокол для WebSocket (ws/wss)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const statusLabels: Record<string, string> = {
@@ -140,8 +140,12 @@ export default function Barista(props: BaristaProps) {
 
   // Initialize WebSocket
   onMount(() => {
+    console.log('Connecting to WebSocket:', API_URL);
     const ws = io(API_URL, {
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
     });
 
     ws.on('connect', () => {
