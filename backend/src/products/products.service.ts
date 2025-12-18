@@ -13,6 +13,7 @@ export class ProductsService {
     return client.product.create({
       data: {
         ...dto,
+        categoryId: dto.categoryId || null,
         status: dto.status ?? ProductStatus.active,
       },
     });
