@@ -1,4 +1,5 @@
 ﻿import { IsEnum, IsNumber, IsOptional, IsString, MinLength, MaxLength, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ProductStatus } from '@prisma/client';
 
 export class CreateProductDto {
@@ -36,6 +37,7 @@ export class CreateProductDto {
   @IsOptional()
   isNew?: boolean;
 
+  @Transform(({ value }) => Number(value))
   @IsNumber()
   @Min(0, { message: 'Цена не может быть отрицательной' })
   price: number;
