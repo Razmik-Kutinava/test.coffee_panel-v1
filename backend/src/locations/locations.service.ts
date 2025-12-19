@@ -13,6 +13,10 @@ export class LocationsService {
     return client.location.create({
       data: {
         ...dto,
+        phone: dto.phone === '' ? null : dto.phone,
+        description: dto.description === '' ? null : dto.description,
+        address: dto.address === '' ? null : dto.address,
+        city: dto.city === '' ? null : dto.city,
         status: dto.status ?? LocationStatus.pending,
       },
     });
