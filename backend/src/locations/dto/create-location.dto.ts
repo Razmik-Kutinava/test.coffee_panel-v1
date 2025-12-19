@@ -20,6 +20,15 @@ export class CreateLocationDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   slug?: string;
 
   @IsOptional()
