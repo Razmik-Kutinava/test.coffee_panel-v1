@@ -52,4 +52,15 @@ export class ProductsController {
   forceDeleteByName(@Param('name') name: string) {
     return this.productsService.forceDeleteByName(name);
   }
+
+  @Post('cleanup/orphaned')
+  async cleanupOrphaned() {
+    const latte = await this.productsService.forceDeleteByName('латте');
+    const cappuccino = await this.productsService.forceDeleteByName('капучино');
+    return {
+      latte,
+      cappuccino,
+      message: 'Очистка завершена',
+    };
+  }
 }
