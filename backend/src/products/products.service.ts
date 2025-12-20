@@ -321,7 +321,7 @@ export class ProductsService {
     }
     
     // Создаем связи между всеми товарами и модификаторами
-    const links = [];
+    const links: Array<{ productId: string; modifierGroupId: string; position: number }> = [];
     for (const product of allProducts) {
       for (let i = 0; i < allModifierGroups.length; i++) {
         links.push({
