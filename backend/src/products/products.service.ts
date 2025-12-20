@@ -297,6 +297,60 @@ export class ProductsService {
     };
   }
 
+  async syncAllModifiers() {
+    const client = await this.prisma.client();
+    
+    // Получаем все активные товары
+    const allProducts = await client.product.findMany({
+      where: { status: 'active' },
+      select: { id: true },
+    });
+    
+    // Получаем все модификаторы
+    const allModifierGroups = await client.modifierGroup.findMany({
+      select: { id: true },
+    });
+    
+    if (allProducts.length === 0 || allModifierGroups.length === 0) {
+      return {
+        success: true,
+        message: 'Нет товаров или модификаторов для синхронизации',
+        productsCount: allProducts.length,
+        modifiersCount: allModifierGroups.length,
+      };
+    }
+    
+    // Создаем связи между всеми товарами и модификаторами
+    const links = [];
+    for (const product of allProducts) {
+      for (let i = 0; i < allModifierGroups.length; i++) {
+        links.push({
+          productId: product.id,
+          modifierGroupId: allModifierGroups[i].id,
+          position: i,
+        });
+      }
+    }
+    
+    try {
+      await client.productModifierGroup.createMany({
+        data: links,
+        skipDuplicates: true, // Пропускаем дубликаты
+      });
+      
+      return {
+        success: true,
+        message: 'Модификаторы успешно синхронизированы со всеми товарами',
+        productsCount: allProducts.length,
+        modifiersCount: allModifierGroups.length,
+        linksCreated: links.length,
+      };
+    } catch (error: any) {
+      console.error('Error syncing modifiers:', error);
+      throw new BadRequestException(`Ошибка синхронизации: ${error.message}`);
+    }
+  }
+
   async getCategories() {
     const client = await this.prisma.client();
     const products = await client.product.findMany({
