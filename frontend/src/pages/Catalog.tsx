@@ -20,6 +20,8 @@ interface CatalogProps {
 export default function Catalog(props: CatalogProps) {
   const [activeTab, setActiveTab] = createSignal<CatalogTab>('products');
   const [showModal, setShowModal] = createSignal<'category' | 'product' | 'modifier' | null>(null);
+  const [editingProduct, setEditingProduct] = createSignal<Product | null>(null);
+  const [editingCategory, setEditingCategory] = createSignal<Category | null>(null);
   
   // Forms
   const [catForm, setCatForm] = createSignal({ name: '', description: '', sortOrder: 0 });
@@ -32,10 +34,17 @@ export default function Catalog(props: CatalogProps) {
 
   const submitCategory = async () => {
     try {
-      await api.createCategory(catForm());
+      const editing = editingCategory();
+      if (editing) {
+        await api.updateCategory(editing.id, catForm());
+        props.showToast('ok', '✅ Категория обновлена');
+      } else {
+        await api.createCategory(catForm());
+        props.showToast('ok', '✅ Категория создана');
+      }
       setCatForm({ name: '', description: '', sortOrder: 0 });
+      setEditingCategory(null);
       setShowModal(null);
-      props.showToast('ok', '✅ Категория создана');
       props.onRefresh();
     } catch (e: any) {
       props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
@@ -44,10 +53,17 @@ export default function Catalog(props: CatalogProps) {
 
   const submitProduct = async () => {
     try {
-      await api.createProduct({ ...prodForm(), price: Number(prodForm().price) });
+      const editing = editingProduct();
+      if (editing) {
+        await api.updateProduct(editing.id, { ...prodForm(), price: Number(prodForm().price) });
+        props.showToast('ok', '✅ Продукт обновлён');
+      } else {
+        await api.createProduct({ ...prodForm(), price: Number(prodForm().price) });
+        props.showToast('ok', '✅ Продукт создан');
+      }
       setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false });
+      setEditingProduct(null);
       setShowModal(null);
-      props.showToast('ok', '✅ Продукт создан');
       props.onRefresh();
     } catch (e: any) {
       props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
@@ -67,6 +83,7 @@ export default function Catalog(props: CatalogProps) {
   };
 
   const deleteCategory = async (id: string) => {
+    if (!confirm('Вы уверены, что хотите удалить эту категорию?')) return;
     try {
       await api.deleteCategory(id);
       props.showToast('ok', '✅ Категория удалена');
@@ -77,6 +94,7 @@ export default function Catalog(props: CatalogProps) {
   };
 
   const deleteProduct = async (id: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот продукт?')) return;
     try {
       await api.deleteProduct(id);
       props.showToast('ok', '✅ Продукт удалён');
@@ -84,6 +102,30 @@ export default function Catalog(props: CatalogProps) {
     } catch (e: any) {
       props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
     }
+  };
+
+  const editProduct = (product: Product) => {
+    setEditingProduct(product);
+    setProdForm({
+      name: product.name || '',
+      description: product.description || '',
+      price: Number(product.price) || 0,
+      categoryId: product.categoryId || '',
+      status: product.status || 'active',
+      isFeatured: product.isFeatured || false,
+      isNew: product.isNew || false,
+    });
+    setShowModal('product');
+  };
+
+  const editCategory = (category: Category) => {
+    setEditingCategory(category);
+    setCatForm({
+      name: category.name || '',
+      description: category.description || '',
+      sortOrder: category.sortOrder || 0,
+    });
+    setShowModal('category');
   };
 
   return (
@@ -152,7 +194,7 @@ export default function Catalog(props: CatalogProps) {
                     )}
                   </div>
                   <div style={styles.itemActions}>
-                    <button style={styles.actionBtn} title="Редактировать">✏️</button>
+                    <button style={styles.actionBtn} title="Редактировать" onClick={() => editProduct(product)}>✏️</button>
                     <button style={styles.actionBtn} title="Удалить" onClick={() => deleteProduct(product.id)}>🗑️</button>
                   </div>
                 </div>
@@ -192,7 +234,7 @@ export default function Catalog(props: CatalogProps) {
                     </div>
                   </div>
                   <div style={styles.itemActions}>
-                    <button style={styles.actionBtn} title="Редактировать">✏️</button>
+                    <button style={styles.actionBtn} title="Редактировать" onClick={() => editCategory(cat)}>✏️</button>
                     <button style={styles.actionBtn} title="Удалить" onClick={() => deleteCategory(cat.id)}>🗑️</button>
                   </div>
                 </div>
@@ -251,12 +293,22 @@ export default function Catalog(props: CatalogProps) {
       {/* Category Modal */}
       <Modal
         isOpen={showModal() === 'category'}
-        onClose={() => setShowModal(null)}
-        title="Новая категория"
+        onClose={() => {
+          setShowModal(null);
+          setEditingCategory(null);
+          setCatForm({ name: '', description: '', sortOrder: 0 });
+        }}
+        title={editingCategory() ? 'Редактировать категорию' : 'Новая категория'}
         footer={
           <div style={styles.modalFooter}>
-            <Button variant="ghost" onClick={() => setShowModal(null)}>Отмена</Button>
-            <Button onClick={submitCategory} disabled={!catForm().name}>Создать</Button>
+            <Button variant="ghost" onClick={() => {
+              setShowModal(null);
+              setEditingCategory(null);
+              setCatForm({ name: '', description: '', sortOrder: 0 });
+            }}>Отмена</Button>
+            <Button onClick={submitCategory} disabled={!catForm().name}>
+              {editingCategory() ? 'Сохранить' : 'Создать'}
+            </Button>
           </div>
         }
       >
@@ -286,13 +338,23 @@ export default function Catalog(props: CatalogProps) {
       {/* Product Modal */}
       <Modal
         isOpen={showModal() === 'product'}
-        onClose={() => setShowModal(null)}
-        title="Новый продукт"
+        onClose={() => {
+          setShowModal(null);
+          setEditingProduct(null);
+          setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false });
+        }}
+        title={editingProduct() ? 'Редактировать продукт' : 'Новый продукт'}
         size="lg"
         footer={
           <div style={styles.modalFooter}>
-            <Button variant="ghost" onClick={() => setShowModal(null)}>Отмена</Button>
-            <Button onClick={submitProduct} disabled={!prodForm().name || !prodForm().price}>Создать</Button>
+            <Button variant="ghost" onClick={() => {
+              setShowModal(null);
+              setEditingProduct(null);
+              setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false });
+            }}>Отмена</Button>
+            <Button onClick={submitProduct} disabled={!prodForm().name || !prodForm().price}>
+              {editingProduct() ? 'Сохранить' : 'Создать'}
+            </Button>
           </div>
         }
       >
