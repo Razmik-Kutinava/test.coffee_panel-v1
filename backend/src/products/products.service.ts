@@ -10,11 +10,49 @@ export class ProductsService {
 
   async create(dto: CreateProductDto) {
     const client = await this.prisma.client();
-    return client.product.create({
+    
+    // Создаем товар
+    const product = await client.product.create({
       data: {
         ...dto,
-        categoryId: dto.categoryId || null,
+        categoryId: dto.categoryId === '' ? null : dto.categoryId || null,
         status: dto.status ?? ProductStatus.active,
+      },
+    });
+
+    // Получаем все активные локации
+    const locations = await client.location.findMany({
+      where: {
+        status: 'active',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // Добавляем товар во все активные локации
+    if (locations.length > 0) {
+      await client.locationProduct.createMany({
+        data: locations.map((location) => ({
+          locationId: location.id,
+          productId: product.id,
+          price: dto.price ? dto.price : null, // Используем цену товара или null (будет использоваться базовая цена)
+          isAvailable: true,
+          stockQuantity: 0,
+          minStockThreshold: 5,
+        })),
+        skipDuplicates: true, // Пропускаем дубликаты, если товар уже есть в локации
+      });
+    }
+
+    // Возвращаем товар с информацией о локациях
+    return client.product.findUnique({
+      where: { id: product.id },
+      include: {
+        category: true,
+        locations: {
+          include: { location: true },
+        },
       },
     });
   }
