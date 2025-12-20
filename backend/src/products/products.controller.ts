@@ -47,4 +47,9 @@ export class ProductsController {
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
   }
+
+  @Delete('force/by-name/:name')
+  forceDeleteByName(@Param('name') name: string) {
+    return this.productsService.forceDeleteByName(name);
+  }
 }

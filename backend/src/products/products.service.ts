@@ -176,6 +176,57 @@ export class ProductsService {
     }
   }
 
+  async forceDeleteByName(name: string) {
+    const client = await this.prisma.client();
+    
+    // Находим все товары с таким именем
+    const products = await client.product.findMany({
+      where: { name: { contains: name, mode: 'insensitive' } },
+      include: {
+        _count: {
+          select: {
+            orderItems: true,
+            locations: true,
+          },
+        },
+      },
+    });
+
+    if (products.length === 0) {
+      return { deleted: 0, message: `Товары с именем "${name}" не найдены` };
+    }
+
+    let deletedCount = 0;
+    const errors: string[] = [];
+
+    for (const product of products) {
+      try {
+        // Удаляем все связанные записи
+        await client.productModifierGroup.deleteMany({ where: { productId: product.id } });
+        await client.locationProduct.deleteMany({ where: { productId: product.id } });
+        
+        // Если есть заказы, удаляем orderItems (но не сами заказы)
+        if (product._count.orderItems > 0) {
+          await client.orderItem.deleteMany({ where: { productId: product.id } });
+        }
+        
+        // Удаляем сам товар
+        await client.product.delete({ where: { id: product.id } });
+        deletedCount++;
+      } catch (error: any) {
+        errors.push(`Ошибка при удалении товара ${product.id}: ${error.message}`);
+        console.error(`Error force deleting product ${product.id}:`, error);
+      }
+    }
+
+    return {
+      deleted: deletedCount,
+      total: products.length,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Удалено ${deletedCount} из ${products.length} товаров с именем "${name}"`,
+    };
+  }
+
   async getCategories() {
     const client = await this.prisma.client();
     const products = await client.product.findMany({
