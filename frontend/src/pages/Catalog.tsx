@@ -22,6 +22,7 @@ export default function Catalog(props: CatalogProps) {
   const [showModal, setShowModal] = createSignal<'category' | 'product' | 'modifier' | null>(null);
   const [editingProduct, setEditingProduct] = createSignal<Product | null>(null);
   const [editingCategory, setEditingCategory] = createSignal<Category | null>(null);
+  const [editingModifier, setEditingModifier] = createSignal<ModifierGroup | null>(null);
   
   // Forms
   const [catForm, setCatForm] = createSignal({ name: '', description: '', sortOrder: 0 });
@@ -31,6 +32,7 @@ export default function Catalog(props: CatalogProps) {
   const [modForm, setModForm] = createSignal({ 
     name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 
   });
+  const [modifierOptions, setModifierOptions] = createSignal<Array<{ name: string; price: number; isDefault: boolean }>>([]);
 
   const submitCategory = async () => {
     try {
@@ -79,14 +81,80 @@ export default function Catalog(props: CatalogProps) {
 
   const submitModifier = async () => {
     try {
-      await api.createModifierGroup(modForm() as any);
+      const editing = editingModifier();
+      if (editing) {
+        // Обновление модификатора
+        await api.updateModifierGroup(editing.id, modForm() as any);
+        props.showToast('ok', '✅ Группа модификаторов обновлена');
+      } else {
+        // Создание модификатора с опциями
+        const group = await api.createModifierGroup(modForm() as any);
+        
+        // Создаем опции для новой группы
+        if (modifierOptions().length > 0) {
+          for (const option of modifierOptions()) {
+            await api.createModifierOption(group.id, {
+              name: option.name,
+              price: option.price || 0,
+              isDefault: option.isDefault || false,
+            });
+          }
+        }
+        props.showToast('ok', '✅ Группа модификаторов создана');
+      }
+      
       setModForm({ name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 });
+      setModifierOptions([]);
+      setEditingModifier(null);
       setShowModal(null);
-      props.showToast('ok', '✅ Группа модификаторов создана');
       props.onRefresh();
     } catch (e: any) {
       props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
     }
+  };
+
+  const deleteModifier = async (id: string) => {
+    if (!confirm('Вы уверены, что хотите удалить эту группу модификаторов?')) return;
+    try {
+      await api.deleteModifierGroup(id);
+      props.showToast('ok', '✅ Группа модификаторов удалена');
+      props.onRefresh();
+    } catch (e: any) {
+      props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
+    }
+  };
+
+  const editModifier = (group: ModifierGroup) => {
+    setEditingModifier(group);
+    setModForm({
+      name: group.name || '',
+      type: group.type || 'single',
+      required: group.required || false,
+      minSelect: group.minSelect || 0,
+      maxSelect: group.maxSelect || 1,
+    });
+    setModifierOptions(
+      (group.options || []).map(opt => ({
+        name: opt.name,
+        price: Number(opt.price) || 0,
+        isDefault: opt.isDefault || false,
+      }))
+    );
+    setShowModal('modifier');
+  };
+
+  const addModifierOption = () => {
+    setModifierOptions([...modifierOptions(), { name: '', price: 0, isDefault: false }]);
+  };
+
+  const removeModifierOption = (index: number) => {
+    setModifierOptions(modifierOptions().filter((_, i) => i !== index));
+  };
+
+  const updateModifierOption = (index: number, field: string, value: any) => {
+    const options = [...modifierOptions()];
+    options[index] = { ...options[index], [field]: value };
+    setModifierOptions(options);
   };
 
   const deleteCategory = async (id: string) => {
@@ -273,6 +341,10 @@ export default function Catalog(props: CatalogProps) {
                       <Badge variant="default" size="sm">{group.type === 'single' ? 'Один' : 'Несколько'}</Badge>
                       {group.required && <Badge variant="warning" size="sm">Обязательный</Badge>}
                     </div>
+                    <div style={styles.itemActions}>
+                      <button style={styles.actionBtn} title="Редактировать" onClick={() => editModifier(group)}>✏️</button>
+                      <button style={styles.actionBtn} title="Удалить" onClick={() => deleteModifier(group.id)}>🗑️</button>
+                    </div>
                   </div>
                   <div style={styles.modifierOptions}>
                     <For each={group.options || []}>
@@ -420,12 +492,24 @@ export default function Catalog(props: CatalogProps) {
       {/* Modifier Modal */}
       <Modal
         isOpen={showModal() === 'modifier'}
-        onClose={() => setShowModal(null)}
-        title="Новая группа модификаторов"
+        onClose={() => {
+          setShowModal(null);
+          setEditingModifier(null);
+          setModForm({ name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 });
+          setModifierOptions([]);
+        }}
+        title={editingModifier() ? 'Редактировать группу модификаторов' : 'Новая группа модификаторов'}
         footer={
           <div style={styles.modalFooter}>
-            <Button variant="ghost" onClick={() => setShowModal(null)}>Отмена</Button>
-            <Button onClick={submitModifier} disabled={!modForm().name}>Создать</Button>
+            <Button variant="ghost" onClick={() => {
+              setShowModal(null);
+              setEditingModifier(null);
+              setModForm({ name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 });
+              setModifierOptions([]);
+            }}>Отмена</Button>
+            <Button onClick={submitModifier} disabled={!modForm().name}>
+              {editingModifier() ? 'Сохранить' : 'Создать'}
+            </Button>
           </div>
         }
       >
@@ -454,6 +538,52 @@ export default function Catalog(props: CatalogProps) {
             />
             Обязательный для заполнения
           </label>
+
+          {/* Опции модификатора */}
+          <div style={{ marginTop: '20px', borderTop: '1px solid #e0e0e0', paddingTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <label style={{ fontWeight: 600, fontSize: '14px' }}>Опции модификатора</label>
+              <Button icon="➕" onClick={addModifierOption} variant="ghost" size="sm">Добавить опцию</Button>
+            </div>
+            <For each={modifierOptions()}>
+              {(option, index) => (
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                  <Input
+                    placeholder="Название опции"
+                    value={option.name}
+                    onInput={(v) => updateModifierOption(index(), 'name', v)}
+                    style={{ flex: 1 }}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Цена"
+                    value={option.price}
+                    onInput={(v) => updateModifierOption(index(), 'price', Number(v) || 0)}
+                    style={{ width: '100px' }}
+                  />
+                  <label style={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={option.isDefault}
+                      onChange={(e) => updateModifierOption(index(), 'isDefault', e.currentTarget.checked)}
+                    />
+                    По умолчанию
+                  </label>
+                  <button
+                    style={{ ...styles.actionBtn, padding: '5px 10px' }}
+                    onClick={() => removeModifierOption(index())}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              )}
+            </For>
+            <Show when={modifierOptions().length === 0}>
+              <div style={{ color: '#999', fontSize: '14px', textAlign: 'center', padding: '20px' }}>
+                Нет опций. Добавьте хотя бы одну опцию.
+              </div>
+            </Show>
+          </div>
         </div>
       </Modal>
     </div>
