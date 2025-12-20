@@ -10,7 +10,13 @@ export class CategoriesService {
   async create(dto: CreateCategoryDto) {
     const client = await this.prisma.client();
     return client.category.create({
-      data: dto as any,
+      data: {
+        ...dto,
+        description: dto.description === '' ? null : dto.description,
+        slug: dto.slug === '' ? null : dto.slug,
+        imageUrl: dto.imageUrl === '' ? null : dto.imageUrl,
+        parentId: dto.parentId === '' ? null : dto.parentId,
+      },
     });
   }
 
