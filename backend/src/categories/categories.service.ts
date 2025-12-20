@@ -72,24 +72,28 @@ export class CategoriesService {
     const category = await client.category.findUnique({ where: { id } });
     if (!category) throw new NotFoundException('Category not found');
     
+    // Проверяем, есть ли связанные записи
+    const productsCount = await client.product.count({ where: { categoryId: id } });
+    if (productsCount > 0) {
+      throw new BadRequestException(`Невозможно удалить категорию: в ней ${productsCount} товаров`);
+    }
+    
     try {
-      // Проверяем, есть ли связанные записи
-      const productsCount = await client.product.count({ where: { categoryId: id } });
-      if (productsCount > 0) {
-        throw new BadRequestException(`Невозможно удалить категорию: в ней ${productsCount} товаров`);
-      }
-      
       // Удаляем дочерние категории
       await client.category.deleteMany({ where: { parentId: id } });
       
-      return client.category.delete({ where: { id } });
+      return await client.category.delete({ where: { id } });
     } catch (error: any) {
+      // Если ошибка связана с foreign key constraint
+      if (error.code === 'P2003' || error.message?.includes('Foreign key constraint') || error.message?.includes('foreign key')) {
+        throw new BadRequestException('Невозможно удалить категорию: она связана с другими записями');
+      }
+      // Если это уже BadRequestException, пробрасываем дальше
       if (error instanceof BadRequestException) {
         throw error;
       }
-      if (error.message?.includes('Foreign key constraint')) {
-        throw new BadRequestException('Невозможно удалить категорию: она используется товарами или связана с другими записями');
-      }
+      // Для всех остальных ошибок логируем и пробрасываем
+      console.error('Error deleting category:', error);
       throw error;
     }
   }

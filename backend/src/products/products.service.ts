@@ -98,25 +98,29 @@ export class ProductsService {
     const product = await client.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundException('Product not found');
     
+    // Проверяем, есть ли связанные записи
+    const orderItemsCount = await client.orderItem.count({ where: { productId: id } });
+    if (orderItemsCount > 0) {
+      throw new BadRequestException(`Невозможно удалить товар: он используется в ${orderItemsCount} заказах`);
+    }
+    
     try {
-      // Проверяем, есть ли связанные записи
-      const orderItemsCount = await client.orderItem.count({ where: { productId: id } });
-      if (orderItemsCount > 0) {
-        throw new BadRequestException(`Невозможно удалить товар: он используется в ${orderItemsCount} заказах`);
-      }
-      
       // Удаляем связанные записи
       await client.productModifierGroup.deleteMany({ where: { productId: id } });
       await client.locationProduct.deleteMany({ where: { productId: id } });
       
-      return client.product.delete({ where: { id } });
+      return await client.product.delete({ where: { id } });
     } catch (error: any) {
+      // Если ошибка связана с foreign key constraint
+      if (error.code === 'P2003' || error.message?.includes('Foreign key constraint') || error.message?.includes('foreign key')) {
+        throw new BadRequestException('Невозможно удалить товар: он связан с другими записями');
+      }
+      // Если это уже BadRequestException, пробрасываем дальше
       if (error instanceof BadRequestException) {
         throw error;
       }
-      if (error.message?.includes('Foreign key constraint')) {
-        throw new BadRequestException('Невозможно удалить товар: он используется в заказах или связан с другими записями');
-      }
+      // Для всех остальных ошибок логируем и пробрасываем
+      console.error('Error deleting product:', error);
       throw error;
     }
   }
