@@ -15,8 +15,8 @@ interface SidebarProps {
 
 const menuItems: Array<{ id: Tab; icon: string; label: string; badge?: boolean; separator?: boolean }> = [
   { id: 'dashboard', icon: '📊', label: 'Дашборд' },
-  { id: 'catalog', icon: '📦', label: 'Каталог' },
   { id: 'locations', icon: '🏪', label: 'Точки' },
+  { id: 'catalog', icon: '📦', label: 'Каталог' },
   { id: 'orders', icon: '📋', label: 'Заказы', badge: true },
   { id: 'users', icon: '👥', label: 'Клиенты' },
   { id: 'marketing', icon: '📣', label: 'Маркетинг' },

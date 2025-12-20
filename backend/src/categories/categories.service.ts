@@ -55,7 +55,16 @@ export class CategoriesService {
     const client = await this.prisma.client();
     const category = await client.category.findUnique({ where: { id } });
     if (!category) throw new NotFoundException('Category not found');
-    return client.category.update({ where: { id }, data: dto as any });
+    return client.category.update({
+      where: { id },
+      data: {
+        ...dto,
+        description: dto.description === '' ? null : dto.description,
+        slug: dto.slug === '' ? null : dto.slug,
+        imageUrl: dto.imageUrl === '' ? null : dto.imageUrl,
+        parentId: dto.parentId === '' ? null : dto.parentId,
+      },
+    });
   }
 
   async remove(id: string) {
