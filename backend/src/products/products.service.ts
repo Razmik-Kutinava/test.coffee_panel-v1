@@ -97,7 +97,25 @@ export class ProductsService {
     const client = await this.prisma.client();
     const product = await client.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundException('Product not found');
-    return client.product.delete({ where: { id } });
+    
+    try {
+      // Проверяем, есть ли связанные записи
+      const orderItemsCount = await client.orderItem.count({ where: { productId: id } });
+      if (orderItemsCount > 0) {
+        throw new Error(`Невозможно удалить товар: он используется в ${orderItemsCount} заказах`);
+      }
+      
+      // Удаляем связанные записи
+      await client.productModifierGroup.deleteMany({ where: { productId: id } });
+      await client.locationProduct.deleteMany({ where: { productId: id } });
+      
+      return client.product.delete({ where: { id } });
+    } catch (error: any) {
+      if (error.message?.includes('Foreign key constraint')) {
+        throw new Error('Невозможно удалить товар: он используется в заказах или связан с другими записями');
+      }
+      throw error;
+    }
   }
 
   async getCategories() {

@@ -71,7 +71,24 @@ export class CategoriesService {
     const client = await this.prisma.client();
     const category = await client.category.findUnique({ where: { id } });
     if (!category) throw new NotFoundException('Category not found');
-    return client.category.delete({ where: { id } });
+    
+    try {
+      // Проверяем, есть ли связанные записи
+      const productsCount = await client.product.count({ where: { categoryId: id } });
+      if (productsCount > 0) {
+        throw new Error(`Невозможно удалить категорию: в ней ${productsCount} товаров`);
+      }
+      
+      // Удаляем дочерние категории
+      await client.category.deleteMany({ where: { parentId: id } });
+      
+      return client.category.delete({ where: { id } });
+    } catch (error: any) {
+      if (error.message?.includes('Foreign key constraint')) {
+        throw new Error('Невозможно удалить категорию: она используется товарами или связана с другими записями');
+      }
+      throw error;
+    }
   }
 }
 
