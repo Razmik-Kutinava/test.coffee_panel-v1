@@ -202,7 +202,7 @@ model LocationProduct {
   locationId        String
   product           Product   @relation(fields: [productId], references: [id])
   productId         String
-  name              String?   // Название товара для удобства просмотра в БД
+  // name              String?   // Временно отключено - поле еще не добавлено в БД
   price             Decimal?  @db.Decimal(12, 2)
   stockQuantity     Int       @default(0)
   minStockThreshold Int       @default(5)
