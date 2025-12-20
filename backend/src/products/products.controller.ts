@@ -63,4 +63,9 @@ export class ProductsController {
       message: 'Очистка завершена',
     };
   }
+
+  @Post('sync-modifiers')
+  async syncModifiers() {
+    return this.productsService.syncAllModifiers();
+  }
 }
