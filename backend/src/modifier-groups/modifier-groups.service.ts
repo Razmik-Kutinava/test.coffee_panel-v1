@@ -9,12 +9,38 @@ export class ModifierGroupsService {
 
   async create(dto: CreateModifierGroupDto) {
     const client = await this.prisma.client();
-    return client.modifierGroup.create({
+    
+    // Создаем модификатор
+    const createdGroup = await client.modifierGroup.create({
       data: dto as any,
       include: {
         options: true,
       },
     });
+
+    // Привязываем новый модификатор ко всем существующим активным товарам
+    try {
+      const allProducts = await client.product.findMany({
+        where: { status: 'active' },
+        select: { id: true },
+      });
+      
+      if (allProducts.length > 0) {
+        await client.productModifierGroup.createMany({
+          data: allProducts.map((product, index) => ({
+            productId: product.id,
+            modifierGroupId: createdGroup.id,
+            position: index,
+          })),
+          skipDuplicates: true, // Пропускаем дубликаты, если связь уже есть
+        });
+      }
+    } catch (error: any) {
+      // Логируем ошибку, но не прерываем выполнение - модификатор уже создан
+      console.error('Error creating ProductModifierGroup records:', error);
+    }
+
+    return createdGroup;
   }
 
   async findAll() {

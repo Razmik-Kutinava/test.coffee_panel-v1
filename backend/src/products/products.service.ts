@@ -64,13 +64,43 @@ export class ProductsService {
       }
     }
 
-    // Всегда возвращаем созданный товар, даже если были ошибки с LocationProduct
+    // Привязываем все существующие модификаторы к новому товару
+    try {
+      const allModifierGroups = await client.modifierGroup.findMany({
+        select: { id: true },
+      });
+      
+      if (allModifierGroups.length > 0) {
+        await client.productModifierGroup.createMany({
+          data: allModifierGroups.map((group, index) => ({
+            productId: product.id,
+            modifierGroupId: group.id,
+            position: index,
+          })),
+          skipDuplicates: true, // Пропускаем дубликаты, если связь уже есть
+        });
+      }
+    } catch (error: any) {
+      // Логируем ошибку, но не прерываем выполнение - товар уже создан
+      console.error('Error creating ProductModifierGroup records:', error);
+    }
+
+    // Всегда возвращаем созданный товар, даже если были ошибки с LocationProduct или модификаторами
     const createdProduct = await client.product.findUnique({
       where: { id: product.id },
       include: {
         category: true,
         locations: {
           include: { location: true },
+        },
+        modifierGroups: {
+          include: {
+            modifierGroup: {
+              include: {
+                options: true,
+              },
+            },
+          },
         },
       },
     });
@@ -93,6 +123,15 @@ export class ProductsService {
       orderBy: { createdAt: 'desc' },
       include: {
         category: true,
+        modifierGroups: {
+          include: {
+            modifierGroup: {
+              include: {
+                options: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             orderItems: true,
