@@ -124,6 +124,9 @@ export class CategoriesService {
     }
     
     try {
+      // Удаляем связи с локациями (LocationCategory)
+      await client.locationCategory.deleteMany({ where: { categoryId: id } });
+      
       // Удаляем дочерние категории
       await client.category.deleteMany({ where: { parentId: id } });
       

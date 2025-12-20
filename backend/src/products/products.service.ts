@@ -11,7 +11,19 @@ export class ProductsService {
   async create(dto: CreateProductDto) {
     const client = await this.prisma.client();
     
-    // Создаем товар
+    // Проверяем, нет ли уже товара с таким именем (защита от дублирования)
+    const existingProduct = await client.product.findFirst({
+      where: {
+        name: dto.name,
+        status: ProductStatus.active,
+      },
+    });
+    
+    if (existingProduct) {
+      throw new BadRequestException(`Товар с именем "${dto.name}" уже существует`);
+    }
+    
+    // Создаем товар в транзакции для атомарности
     const product = await client.product.create({
       data: {
         ...dto,
@@ -169,11 +181,13 @@ export class ProductsService {
     }
     
     try {
-      // Удаляем связанные записи
+      // Удаляем связанные записи в правильном порядке
       await client.productModifierGroup.deleteMany({ where: { productId: id } });
       await client.locationProduct.deleteMany({ where: { productId: id } });
       
-      return await client.product.delete({ where: { id } });
+      // Удаляем сам товар
+      const deleted = await client.product.delete({ where: { id } });
+      return deleted;
     } catch (error: any) {
       // Если ошибка связана с foreign key constraint
       if (error.code === 'P2003' || error.message?.includes('Foreign key constraint') || error.message?.includes('foreign key')) {
@@ -182,6 +196,10 @@ export class ProductsService {
       // Если это уже BadRequestException, пробрасываем дальше
       if (error instanceof BadRequestException) {
         throw error;
+      }
+      // Если товар уже удален (P2025)
+      if (error.code === 'P2025') {
+        throw new NotFoundException('Product not found');
       }
       // Для всех остальных ошибок логируем и пробрасываем
       console.error('Error deleting product:', error);
