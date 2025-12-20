@@ -9,13 +9,58 @@ export class CategoriesService {
 
   async create(dto: CreateCategoryDto) {
     const client = await this.prisma.client();
-    return client.category.create({
+    
+    // Создаем категорию
+    const category = await client.category.create({
       data: {
         ...dto,
         description: dto.description === '' ? null : dto.description,
         slug: dto.slug === '' ? null : dto.slug,
         imageUrl: dto.imageUrl === '' ? null : dto.imageUrl,
         parentId: dto.parentId === '' ? null : dto.parentId,
+      },
+    });
+
+    // Получаем все активные локации
+    const locations = await client.location.findMany({
+      where: {
+        status: 'active',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // Добавляем категорию во все активные локации
+    if (locations.length > 0) {
+      try {
+        await client.locationCategory.createMany({
+          data: locations.map((location) => ({
+            locationId: location.id,
+            categoryId: category.id,
+            isVisible: true,
+            sortOrder: category.sortOrder || 0,
+          })),
+          skipDuplicates: true,
+        });
+      } catch (error: any) {
+        // Логируем ошибку, но не прерываем выполнение - категория уже создана
+        console.error('Error creating LocationCategory records:', error);
+      }
+    }
+
+    // Возвращаем категорию с информацией о локациях
+    return client.category.findUnique({
+      where: { id: category.id },
+      include: {
+        locations: {
+          include: { location: true },
+        },
+        _count: {
+          select: {
+            products: true,
+          },
+        },
       },
     });
   }

@@ -30,24 +30,30 @@ export class ProductsService {
       },
     });
 
-    // Добавляем товар во все активные локации
+    // Добавляем товар во все активные локации (с обработкой ошибок)
     if (locations.length > 0) {
-      await client.locationProduct.createMany({
-        data: locations.map((location) => ({
-          locationId: location.id,
-          productId: product.id,
-          // name: product.name, // Временно отключено - поле еще не добавлено в БД
-          price: dto.price ? dto.price : null, // Используем цену товара или null (будет использоваться базовая цена)
-          isAvailable: true,
-          stockQuantity: 0,
-          minStockThreshold: 5,
-        })),
-        skipDuplicates: true, // Пропускаем дубликаты, если товар уже есть в локации
-      });
+      try {
+        await client.locationProduct.createMany({
+          data: locations.map((location) => ({
+            locationId: location.id,
+            productId: product.id,
+            // name: product.name, // Временно отключено - поле еще не добавлено в БД
+            price: dto.price ? dto.price : null, // Используем цену товара или null (будет использоваться базовая цена)
+            isAvailable: true,
+            stockQuantity: 0,
+            minStockThreshold: 5,
+          })),
+          skipDuplicates: true, // Пропускаем дубликаты, если товар уже есть в локации
+        });
+      } catch (error: any) {
+        // Логируем ошибку, но не прерываем выполнение - товар уже создан
+        console.error('Error creating LocationProduct records:', error);
+        // Товар все равно возвращаем, даже если LocationProduct не созданы
+      }
     }
 
-    // Возвращаем товар с информацией о локациях
-    return client.product.findUnique({
+    // Всегда возвращаем созданный товар, даже если были ошибки с LocationProduct
+    const createdProduct = await client.product.findUnique({
       where: { id: product.id },
       include: {
         category: true,
@@ -56,6 +62,13 @@ export class ProductsService {
         },
       },
     });
+
+    // Если findUnique вернул null (маловероятно, но на всякий случай)
+    if (!createdProduct) {
+      throw new Error('Product was created but could not be retrieved');
+    }
+
+    return createdProduct;
   }
 
   async findAll(status?: ProductStatus, categoryId?: string) {
