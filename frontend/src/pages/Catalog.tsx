@@ -51,8 +51,13 @@ export default function Catalog(props: CatalogProps) {
     }
   };
 
+  const [isSubmittingProduct, setIsSubmittingProduct] = createSignal(false);
+  
   const submitProduct = async () => {
+    if (isSubmittingProduct()) return; // Защита от двойного клика
+    
     try {
+      setIsSubmittingProduct(true);
       const editing = editingProduct();
       if (editing) {
         await api.updateProduct(editing.id, { ...prodForm(), price: Number(prodForm().price) });
@@ -67,6 +72,8 @@ export default function Catalog(props: CatalogProps) {
       props.onRefresh();
     } catch (e: any) {
       props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
+    } finally {
+      setIsSubmittingProduct(false);
     }
   };
 
@@ -352,8 +359,8 @@ export default function Catalog(props: CatalogProps) {
               setEditingProduct(null);
               setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false });
             }}>Отмена</Button>
-            <Button onClick={submitProduct} disabled={!prodForm().name || !prodForm().price}>
-              {editingProduct() ? 'Сохранить' : 'Создать'}
+            <Button onClick={submitProduct} disabled={!prodForm().name || !prodForm().price || isSubmittingProduct()}>
+              {isSubmittingProduct() ? 'Создание...' : editingProduct() ? 'Сохранить' : 'Создать'}
             </Button>
           </div>
         }
