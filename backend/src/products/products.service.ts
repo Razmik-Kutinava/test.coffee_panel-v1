@@ -111,13 +111,24 @@ export class ProductsService {
     const client = await this.prisma.client();
     const product = await client.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundException('Product not found');
-    return client.product.update({
+    
+    const updatedProduct = await client.product.update({
       where: { id },
       data: {
         ...dto,
         categoryId: dto.categoryId === '' ? null : (dto.categoryId || undefined),
       },
     });
+
+    // Если название товара изменилось, обновляем его во всех LocationProduct
+    if (dto.name && dto.name !== product.name) {
+      await client.locationProduct.updateMany({
+        where: { productId: id },
+        data: { name: dto.name },
+      });
+    }
+
+    return updatedProduct;
   }
 
   async toggleStatus(id: string) {
