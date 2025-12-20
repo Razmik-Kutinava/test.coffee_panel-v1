@@ -17,6 +17,7 @@ interface LocationsProps {
 
 export default function Locations(props: LocationsProps) {
   const [showModal, setShowModal] = createSignal(false);
+  const [editingLocation, setEditingLocation] = createSignal<Location | null>(null);
   const [form, setForm] = createSignal({
     name: '',
     city: '',
@@ -27,14 +28,33 @@ export default function Locations(props: LocationsProps) {
 
   const submitLocation = async () => {
     try {
-      await api.createLocation(form());
+      const editing = editingLocation();
+      if (editing) {
+        await api.updateLocation(editing.id, form());
+        props.showToast('ok', '✅ Точка обновлена');
+      } else {
+        await api.createLocation(form());
+        props.showToast('ok', '✅ Точка создана');
+      }
       setForm({ name: '', city: '', address: '', phone: '', description: '' });
+      setEditingLocation(null);
       setShowModal(false);
-      props.showToast('ok', '✅ Точка создана');
       props.onRefresh();
     } catch (e: any) {
       props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
     }
+  };
+
+  const editLocation = (location: Location) => {
+    setEditingLocation(location);
+    setForm({
+      name: location.name || '',
+      city: location.city || '',
+      address: location.address || '',
+      phone: location.phone || '',
+      description: location.description || '',
+    });
+    setShowModal(true);
   };
 
   const deleteLocation = async (id: string) => {
@@ -142,7 +162,7 @@ export default function Locations(props: LocationsProps) {
                   <button style={styles.actionBtn} onClick={() => toggleStatus(loc)}>
                     {loc.status === 'active' ? '⏸️' : '▶️'}
                   </button>
-                  <button style={styles.actionBtn}>✏️</button>
+                  <button style={styles.actionBtn} onClick={() => editLocation(loc)}>✏️</button>
                   <button style={styles.actionBtn} onClick={() => deleteLocation(loc.id)}>🗑️</button>
                 </div>
               </div>
@@ -158,15 +178,25 @@ export default function Locations(props: LocationsProps) {
         </Show>
       </div>
 
-      {/* Create Modal */}
+      {/* Create/Edit Modal */}
       <Modal
         isOpen={showModal()}
-        onClose={() => setShowModal(false)}
-        title="Новая точка"
+        onClose={() => {
+          setShowModal(false);
+          setEditingLocation(null);
+          setForm({ name: '', city: '', address: '', phone: '', description: '' });
+        }}
+        title={editingLocation() ? 'Редактировать точку' : 'Новая точка'}
         footer={
           <div style={styles.modalFooter}>
-            <Button variant="ghost" onClick={() => setShowModal(false)}>Отмена</Button>
-            <Button onClick={submitLocation} disabled={!form().name || !form().city}>Создать</Button>
+            <Button variant="ghost" onClick={() => {
+              setShowModal(false);
+              setEditingLocation(null);
+              setForm({ name: '', city: '', address: '', phone: '', description: '' });
+            }}>Отмена</Button>
+            <Button onClick={submitLocation} disabled={!form().name || !form().city}>
+              {editingLocation() ? 'Сохранить' : 'Создать'}
+            </Button>
           </div>
         }
       >

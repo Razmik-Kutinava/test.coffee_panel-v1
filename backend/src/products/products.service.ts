@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -102,7 +102,7 @@ export class ProductsService {
       // Проверяем, есть ли связанные записи
       const orderItemsCount = await client.orderItem.count({ where: { productId: id } });
       if (orderItemsCount > 0) {
-        throw new Error(`Невозможно удалить товар: он используется в ${orderItemsCount} заказах`);
+        throw new BadRequestException(`Невозможно удалить товар: он используется в ${orderItemsCount} заказах`);
       }
       
       // Удаляем связанные записи
@@ -111,8 +111,11 @@ export class ProductsService {
       
       return client.product.delete({ where: { id } });
     } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       if (error.message?.includes('Foreign key constraint')) {
-        throw new Error('Невозможно удалить товар: он используется в заказах или связан с другими записями');
+        throw new BadRequestException('Невозможно удалить товар: он используется в заказах или связан с другими записями');
       }
       throw error;
     }

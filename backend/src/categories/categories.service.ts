@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -76,7 +76,7 @@ export class CategoriesService {
       // Проверяем, есть ли связанные записи
       const productsCount = await client.product.count({ where: { categoryId: id } });
       if (productsCount > 0) {
-        throw new Error(`Невозможно удалить категорию: в ней ${productsCount} товаров`);
+        throw new BadRequestException(`Невозможно удалить категорию: в ней ${productsCount} товаров`);
       }
       
       // Удаляем дочерние категории
@@ -84,8 +84,11 @@ export class CategoriesService {
       
       return client.category.delete({ where: { id } });
     } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       if (error.message?.includes('Foreign key constraint')) {
-        throw new Error('Невозможно удалить категорию: она используется товарами или связана с другими записями');
+        throw new BadRequestException('Невозможно удалить категорию: она используется товарами или связана с другими записями');
       }
       throw error;
     }
