@@ -36,7 +36,7 @@ export class ProductsService {
         data: locations.map((location) => ({
           locationId: location.id,
           productId: product.id,
-          name: product.name, // Сохраняем название товара для удобства просмотра в БД
+          // name: product.name, // Временно отключено - поле еще не добавлено в БД
           price: dto.price ? dto.price : null, // Используем цену товара или null (будет использоваться базовая цена)
           isAvailable: true,
           stockQuantity: 0,
@@ -121,12 +121,13 @@ export class ProductsService {
     });
 
     // Если название товара изменилось, обновляем его во всех LocationProduct
-    if (dto.name && dto.name !== product.name) {
-      await client.locationProduct.updateMany({
-        where: { productId: id },
-        data: { name: dto.name },
-      });
-    }
+    // Временно отключено - поле name еще не добавлено в БД
+    // if (dto.name && dto.name !== product.name) {
+    //   await client.locationProduct.updateMany({
+    //     where: { productId: id },
+    //     data: { name: dto.name },
+    //   });
+    // }
 
     return updatedProduct;
   }
