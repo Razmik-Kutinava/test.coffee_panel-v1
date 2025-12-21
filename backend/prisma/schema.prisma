@@ -168,7 +168,7 @@ model ModifierGroup {
 
 model ModifierOption {
   id             String         @id @default(uuid())
-  group          ModifierGroup  @relation(fields: [groupId], references: [id])
+  group          ModifierGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   groupId        String
   name           String
   price          Decimal        @default(0) @db.Decimal(12, 2)
@@ -186,7 +186,7 @@ model ProductModifierGroup {
   id              String         @id @default(uuid())
   product         Product        @relation(fields: [productId], references: [id])
   productId       String
-  modifierGroup   ModifierGroup  @relation(fields: [modifierGroupId], references: [id])
+  modifierGroup   ModifierGroup  @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
   modifierGroupId String
   position        Int            @default(0)
 

@@ -11,9 +11,13 @@ export class ModifierOptionsService {
     const client = await this.prisma.client();
     return client.modifierOption.create({
       data: {
-        ...dto,
-        price: dto.price ? { set: dto.price } : undefined,
-      } as any,
+        groupId: dto.groupId,
+        name: dto.name,
+        price: dto.price || 0,
+        isDefault: dto.isDefault || false,
+        isActive: dto.isActive !== undefined ? dto.isActive : true,
+        sortOrder: dto.sortOrder || 0,
+      },
     });
   }
 
@@ -44,12 +48,17 @@ export class ModifierOptionsService {
     const client = await this.prisma.client();
     const option = await client.modifierOption.findUnique({ where: { id } });
     if (!option) throw new NotFoundException('Modifier option not found');
+    
+    const updateData: any = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.price !== undefined) updateData.price = dto.price;
+    if (dto.isDefault !== undefined) updateData.isDefault = dto.isDefault;
+    if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
+    if (dto.sortOrder !== undefined) updateData.sortOrder = dto.sortOrder;
+    
     return client.modifierOption.update({
       where: { id },
-      data: {
-        ...dto,
-        price: dto.price ? { set: dto.price } : undefined,
-      } as any,
+      data: updateData,
     });
   }
 

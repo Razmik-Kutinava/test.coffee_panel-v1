@@ -31,5 +31,22 @@ export class ModifierGroupsController {
   remove(@Param('id') id: string) {
     return this.modifierGroupsService.remove(id);
   }
+
+  @Post(':id/link-product/:productId')
+  linkToProduct(
+    @Param('id') groupId: string,
+    @Param('productId') productId: string,
+    @Body() body?: { position?: number },
+  ) {
+    return this.modifierGroupsService.linkToProduct(groupId, productId, body?.position || 0);
+  }
+
+  @Delete(':id/unlink-product/:productId')
+  unlinkFromProduct(
+    @Param('id') groupId: string,
+    @Param('productId') productId: string,
+  ) {
+    return this.modifierGroupsService.unlinkFromProduct(groupId, productId);
+  }
 }
 

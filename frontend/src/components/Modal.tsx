@@ -9,6 +9,7 @@ interface ModalProps {
   children: JSX.Element;
   footer?: JSX.Element;
   size?: 'sm' | 'md' | 'lg';
+  maxHeight?: string;
 }
 
 export default function Modal(props: ModalProps) {
@@ -78,7 +79,7 @@ export default function Modal(props: ModalProps) {
           </div>
           <div style={{
             padding: '24px',
-            'max-height': '60vh',
+            'max-height': props.maxHeight || '60vh',
             'overflow-y': 'auto',
           }}>
             {props.children}

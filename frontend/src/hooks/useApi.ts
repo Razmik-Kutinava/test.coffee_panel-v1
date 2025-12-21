@@ -146,10 +146,21 @@ export const api = {
     fetchJSON<ModifierGroup>(`/modifier-groups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteModifierGroup: (id: string) => 
     fetchJSON(`/modifier-groups/${id}`, { method: 'DELETE' }),
+  linkModifierToProduct: (groupId: string, productId: string, position?: number) =>
+    fetchJSON(`/modifier-groups/${groupId}/link-product/${productId}`, { 
+      method: 'POST', 
+      body: JSON.stringify({ position: position || 0 }) 
+    }),
+  unlinkModifierFromProduct: (groupId: string, productId: string) =>
+    fetchJSON(`/modifier-groups/${groupId}/unlink-product/${productId}`, { 
+      method: 'DELETE' 
+    }),
 
   // Modifier Options
   createModifierOption: (groupId: string, data: any) => 
     fetchJSON(`/modifier-options`, { method: 'POST', body: JSON.stringify({ ...data, groupId }) }),
+  updateModifierOption: (id: string, data: any) => 
+    fetchJSON(`/modifier-options/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteModifierOption: (id: string) => 
     fetchJSON(`/modifier-options/${id}`, { method: 'DELETE' }),
 

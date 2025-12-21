@@ -32,7 +32,9 @@ export default function Catalog(props: CatalogProps) {
   const [modForm, setModForm] = createSignal({ 
     name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 
   });
-  const [modifierOptions, setModifierOptions] = createSignal<Array<{ name: string; price: number; isDefault: boolean }>>([]);
+  const [modifierOptions, setModifierOptions] = createSignal<Array<{ id?: string; name: string; price: number; isDefault: boolean }>>([]);
+  const [selectedProducts, setSelectedProducts] = createSignal<string[]>([]);
+  const [productSelectValue, setProductSelectValue] = createSignal<string>('');
 
   const submitCategory = async () => {
     try {
@@ -82,29 +84,121 @@ export default function Catalog(props: CatalogProps) {
   const submitModifier = async () => {
     try {
       const editing = editingModifier();
+      let groupId: string;
+      
       if (editing) {
         // Обновление модификатора
         await api.updateModifierGroup(editing.id, modForm() as any);
-        props.showToast('ok', '✅ Группа модификаторов обновлена');
-      } else {
-        // Создание модификатора с опциями
-        const group = await api.createModifierGroup(modForm() as any);
+        groupId = editing.id;
         
-        // Создаем опции для новой группы
-        if (modifierOptions().length > 0) {
-          for (const option of modifierOptions()) {
-            await api.createModifierOption(group.id, {
+        // Получаем текущие опции для сравнения
+        const currentOptions = editing.options || [];
+        const currentOptionIds = new Set(currentOptions.map(opt => opt.id));
+        const newOptionIds = new Set(modifierOptions().filter(opt => opt.id).map(opt => opt.id!));
+        
+        // Удаляем опции, которых больше нет
+        const optionsToDelete = currentOptions.filter(opt => !newOptionIds.has(opt.id));
+        for (const opt of optionsToDelete) {
+          try {
+            await api.deleteModifierOption(opt.id);
+          } catch (e) {
+            console.error('Error deleting option:', e);
+          }
+        }
+        
+        // Обновляем или создаем опции
+        for (const option of modifierOptions()) {
+          if (!option.name.trim()) continue; // Пропускаем пустые опции
+          
+          if (option.id) {
+            // Обновляем существующую опцию
+            await api.updateModifierOption(option.id, {
+              name: option.name,
+              price: option.price || 0,
+              isDefault: option.isDefault || false,
+            });
+          } else {
+            // Создаем новую опцию
+            await api.createModifierOption(groupId, {
               name: option.name,
               price: option.price || 0,
               isDefault: option.isDefault || false,
             });
           }
         }
+        
+        // Обновляем связи с товарами
+        const currentProducts = editing.products || [];
+        const currentProductIds = new Set(
+          currentProducts
+            .map((p: any) => {
+              if (p.productId) return p.productId;
+              if (p.product && p.product.id) return p.product.id;
+              return null;
+            })
+            .filter((id: string | null): id is string => Boolean(id))
+        );
+        const newProductIds = new Set(selectedProducts());
+        
+        // Удаляем связи, которые больше не нужны
+        const productsToUnlink = Array.from(currentProductIds).filter(id => !newProductIds.has(id));
+        for (const productId of productsToUnlink) {
+          try {
+            await api.unlinkModifierFromProduct(groupId, productId);
+          } catch (e) {
+            console.error('Error unlinking modifier from product:', e);
+          }
+        }
+        
+        // Добавляем новые связи
+        const productsToLink = Array.from(newProductIds).filter(id => !currentProductIds.has(id));
+        for (const productId of productsToLink) {
+          try {
+            await api.linkModifierToProduct(groupId, productId);
+          } catch (e) {
+            console.error('Error linking modifier to product:', e);
+          }
+        }
+        
+        props.showToast('ok', '✅ Группа модификаторов обновлена');
+      } else {
+        // Создание модификатора с опциями
+        const group = await api.createModifierGroup(modForm() as any);
+        groupId = group.id;
+        
+        // Создаем все опции для новой группы параллельно
+        const optionsToCreate = modifierOptions().filter(opt => opt.name.trim());
+        if (optionsToCreate.length > 0) {
+          await Promise.all(
+            optionsToCreate.map(option =>
+              api.createModifierOption(groupId, {
+                name: option.name,
+                price: option.price || 0,
+                isDefault: option.isDefault || false,
+              })
+            )
+          );
+        }
+        
+        // Связываем с выбранными товарами, если они выбраны
+        if (selectedProducts().length > 0) {
+          await Promise.all(
+            selectedProducts().map(productId =>
+              api.linkModifierToProduct(groupId, productId).catch((e: any) => {
+                console.error('Error linking modifier to product:', e);
+                // Продолжаем связывать остальные товары даже если один не удался
+              })
+            )
+          );
+        }
+        
         props.showToast('ok', '✅ Группа модификаторов создана');
       }
       
       setModForm({ name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 });
       setModifierOptions([]);
+      setSelectedProducts([]);
+      setProductSelectValue('');
       setEditingModifier(null);
       setShowModal(null);
       props.onRefresh();
@@ -135,11 +229,27 @@ export default function Catalog(props: CatalogProps) {
     });
     setModifierOptions(
       (group.options || []).map(opt => ({
+        id: opt.id,
         name: opt.name,
         price: Number(opt.price) || 0,
         isDefault: opt.isDefault || false,
       }))
     );
+    // Загружаем связанные товары
+    if (group.products && Array.isArray(group.products) && group.products.length > 0) {
+      const productIds = group.products
+        .map((p: any) => {
+          // Может быть либо прямой productId, либо вложенный объект product
+          if (p.productId) return p.productId;
+          if (p.product && p.product.id) return p.product.id;
+          return null;
+        })
+        .filter((id: string | null): id is string => Boolean(id));
+      setSelectedProducts(productIds);
+    } else {
+      setSelectedProducts([]);
+    }
+    setProductSelectValue('');
     setShowModal('modifier');
   };
 
@@ -359,6 +469,39 @@ export default function Catalog(props: CatalogProps) {
                       <span style={styles.noOptions}>Нет опций</span>
                     </Show>
                   </div>
+                  {/* Отображение связанных товаров */}
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e0e0e0' }}>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px', fontWeight: 500 }}>
+                      Связанные товары:
+                    </div>
+                    <Show when={group.products && group.products.length > 0}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        <For each={group.products}>
+                          {(link) => {
+                            const productName = link.product?.name || 'Неизвестный товар';
+                            return (
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '4px 8px',
+                                backgroundColor: '#e3f2fd',
+                                color: '#1976d2',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 500
+                              }}>
+                                📦 {productName}
+                              </span>
+                            );
+                          }}
+                        </For>
+                      </div>
+                    </Show>
+                    <Show when={!group.products || group.products.length === 0}>
+                      <span style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                        Доступен для всех товаров
+                      </span>
+                    </Show>
+                  </div>
                 </div>
               )}
             </For>
@@ -497,8 +640,12 @@ export default function Catalog(props: CatalogProps) {
           setEditingModifier(null);
           setModForm({ name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 });
           setModifierOptions([]);
+          setSelectedProducts([]);
+          setProductSelectValue('');
         }}
         title={editingModifier() ? 'Редактировать группу модификаторов' : 'Новая группа модификаторов'}
+        size="lg"
+        maxHeight="85vh"
         footer={
           <div style={styles.modalFooter}>
             <Button variant="ghost" onClick={() => {
@@ -506,6 +653,8 @@ export default function Catalog(props: CatalogProps) {
               setEditingModifier(null);
               setModForm({ name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 });
               setModifierOptions([]);
+              setSelectedProducts([]);
+              setProductSelectValue('');
             }}>Отмена</Button>
             <Button onClick={submitModifier} disabled={!modForm().name}>
               {editingModifier() ? 'Сохранить' : 'Создать'}
@@ -581,6 +730,96 @@ export default function Catalog(props: CatalogProps) {
             <Show when={modifierOptions().length === 0}>
               <div style={{ color: '#999', fontSize: '14px', textAlign: 'center', padding: '20px' }}>
                 Нет опций. Добавьте хотя бы одну опцию.
+              </div>
+            </Show>
+          </div>
+
+          {/* Выбор товаров */}
+          <div style={{ marginTop: '20px', borderTop: '1px solid #e0e0e0', paddingTop: '20px' }}>
+            <label style={{ fontWeight: 600, fontSize: '14px', display: 'block', marginBottom: '10px' }}>
+              Привязка к товарам (опционально)
+            </label>
+            <p style={{ color: '#666', fontSize: '12px', marginBottom: '12px' }}>
+              Выберите товары, для которых доступен этот модификатор. Если ничего не выбрано, модификатор будет доступен для всех товаров.
+            </p>
+            
+            <Select
+              label=""
+              value={productSelectValue()}
+              onChange={(productId) => {
+                if (productId && !selectedProducts().includes(productId)) {
+                  setSelectedProducts([...selectedProducts(), productId]);
+                  setProductSelectValue(''); // Сбрасываем выбор после добавления
+                }
+              }}
+              placeholder="Выберите товар для привязки..."
+              options={(props.products || [])
+                .filter(p => !selectedProducts().includes(p.id))
+                .map(p => ({
+                  value: p.id,
+                  label: `${p.name}${p.category ? ` (${p.category.name})` : ''} - ${currency(Number(p.price))}`
+                }))
+              }
+            />
+            
+            <Show when={selectedProducts().length > 0}>
+              <div style={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                marginTop: '12px'
+              }}>
+                <For each={selectedProducts()}>
+                  {(productId) => {
+                    const product = props.products?.find(p => p.id === productId);
+                    if (!product) return null;
+                    return (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: '6px',
+                        border: '1px solid #e0e0e0'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontWeight: 500, fontSize: '14px' }}>{product.name}</span>
+                          {product.category && (
+                            <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px' }}>
+                              • {product.category.name}
+                            </span>
+                          )}
+                          <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px', fontWeight: 500 }}>
+                            {currency(Number(product.price))}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedProducts(selectedProducts().filter(id => id !== productId));
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            fontSize: '16px',
+                            color: '#d32f2f'
+                          }}
+                          title="Удалить"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+            </Show>
+            
+            <Show when={!props.products || props.products.length === 0}>
+              <div style={{ color: '#999', fontSize: '14px', textAlign: 'center', padding: '20px', backgroundColor: '#fafafa', borderRadius: '8px', marginTop: '12px' }}>
+                Нет товаров. Создайте товары сначала.
               </div>
             </Show>
           </div>

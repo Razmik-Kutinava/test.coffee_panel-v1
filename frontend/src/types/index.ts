@@ -84,6 +84,16 @@ export interface ModifierGroup {
   maxSelect?: number;
   sortOrder: number;
   options?: ModifierOption[];
+  products?: Array<{
+    id: string;
+    productId: string;
+    modifierGroupId: string;
+    position: number;
+    product?: {
+      id: string;
+      name: string;
+    };
+  }>;
   createdAt: string;
 }
 
