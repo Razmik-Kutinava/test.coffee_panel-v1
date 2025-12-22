@@ -50,15 +50,30 @@ export class UsersService {
       ORDER BY u."createdAt" DESC
     `);
     
-    // Преобразуем результат, конвертируя BigInt в string для JSON сериализации
-    return (users as any[]).map((user: any) => ({
-      ...user,
-      telegramId: user.telegramId ? user.telegramId.toString() : null,
-      totalOrdersAmount: user.totalOrdersAmount ? user.totalOrdersAmount.toString() : '0',
-      _count: {
-        orders: Number(user.orders_count) || 0,
-      },
-    }));
+    // Преобразуем результат, конвертируя все BigInt в Number/String для JSON сериализации
+    return (users as any[]).map((user: any) => {
+      // Создаём копию объекта без orders_count (будет в _count)
+      const { orders_count, ...userData } = user;
+      
+      return {
+        ...userData,
+        // BigInt поля преобразуем в Number или String
+        telegramId: user.telegramId !== null && user.telegramId !== undefined 
+          ? String(user.telegramId) 
+          : null,
+        totalOrdersCount: user.totalOrdersCount !== null && user.totalOrdersCount !== undefined
+          ? Number(user.totalOrdersCount)
+          : 0,
+        totalOrdersAmount: user.totalOrdersAmount !== null && user.totalOrdersAmount !== undefined
+          ? String(user.totalOrdersAmount)
+          : '0',
+        _count: {
+          orders: orders_count !== null && orders_count !== undefined 
+            ? Number(orders_count) 
+            : 0,
+        },
+      };
+    });
   }
 
   async findOne(id: string) {
