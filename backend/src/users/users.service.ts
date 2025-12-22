@@ -16,20 +16,48 @@ export class UsersService {
 
   async findAll(role?: string, status?: string) {
     const client = await this.prisma.client();
-    return client.user.findMany({
-      where: {
-        ...(role ? { role: role as any } : {}),
-        ...(status ? { status: status as any } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        _count: {
-          select: {
-            orders: true,
+    try {
+      return await client.user.findMany({
+        where: {
+          ...(role ? { role: role as any } : {}),
+          ...(status ? { status: status as any } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: {
+              orders: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error: any) {
+      // Временная защита: если ошибка связана с ролью 'customer' в enum
+      if (error.message?.includes("Value 'customer' not found in enum 'UserRole'")) {
+        // Используем raw SQL для обхода проблемы с enum
+        const roleFilter = role ? `AND role = '${role === 'customer' ? 'client' : role}'` : '';
+        const statusFilter = status ? `AND status = '${status}'` : '';
+        
+        const users = await client.$queryRawUnsafe(`
+          SELECT 
+            u.*,
+            (SELECT COUNT(*) FROM "Order" WHERE "userId" = u.id) as "orders_count"
+          FROM "User" u
+          WHERE 1=1 ${roleFilter} ${statusFilter}
+          ORDER BY u."createdAt" DESC
+        `);
+        
+        // Преобразуем результат и нормализуем роль 'customer' -> 'client'
+        return (users as any[]).map((user: any) => ({
+          ...user,
+          role: user.role === 'customer' ? 'client' : user.role,
+          _count: {
+            orders: Number(user.orders_count) || 0,
+          },
+        }));
+      }
+      throw error;
+    }
   }
 
   async findOne(id: string) {

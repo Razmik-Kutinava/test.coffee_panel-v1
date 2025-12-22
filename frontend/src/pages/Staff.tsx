@@ -15,7 +15,7 @@ interface StaffProps {
 
 export default function Staff(props: StaffProps) {
   // Filter staff only (non-clients)
-  const staffUsers = () => (props.users || []).filter((u) => u.role !== 'client');
+  const staffUsers = () => (props.users || []).filter((u) => u.role !== 'client' && u.role !== 'customer');
 
   return (
     <div style={styles.page}>

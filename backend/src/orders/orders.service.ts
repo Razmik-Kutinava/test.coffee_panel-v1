@@ -126,20 +126,92 @@ export class OrdersService {
 
   async findAll(status?: OrderStatus, locationId?: string) {
     const client = await this.prisma.client();
-    return client.order.findMany({
-      where: {
-        ...(status && { status }),
-        ...(locationId && { locationId }),
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        items: { include: { modifiers: true, product: true } },
-        location: true,
-        promocode: true,
-        user: true,
-        history: { orderBy: { createdAt: 'desc' } },
-      },
-    });
+    try {
+      const orders = await client.order.findMany({
+        where: {
+          ...(status && { status }),
+          ...(locationId && { locationId }),
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: { include: { modifiers: true, product: true } },
+          location: true,
+          promocode: true,
+          user: {
+            select: {
+              id: true,
+              telegramId: true,
+              telegramUsername: true,
+              telegramFirstName: true,
+              telegramLastName: true,
+              phone: true,
+              email: true,
+              role: true,
+              status: true,
+              createdAt: true,
+            },
+          },
+          history: { orderBy: { createdAt: 'desc' } },
+        },
+      });
+      
+      // Нормализуем роль 'customer' -> 'client' для совместимости
+      return orders.map((order: any) => {
+        if (order.user && order.user.role === 'customer') {
+          order.user.role = 'client';
+        }
+        return order;
+      });
+    } catch (error: any) {
+      // Временная защита: если ошибка связана с ролью 'customer' в enum UserRole
+      if (error.message?.includes("Value 'customer' not found in enum 'UserRole'")) {
+        // Загружаем заказы без связанного пользователя, затем загружаем пользователей отдельно
+        const orders = await client.order.findMany({
+          where: {
+            ...(status && { status }),
+            ...(locationId && { locationId }),
+          },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            items: { include: { modifiers: true, product: true } },
+            location: true,
+            promocode: true,
+            history: { orderBy: { createdAt: 'desc' } },
+          },
+        });
+        
+        // Загружаем пользователей отдельно через raw SQL, нормализуя роль
+        const userIds = orders.map((o: any) => o.userId).filter(Boolean);
+        if (userIds.length === 0) {
+          return orders.map((o: any) => ({ ...o, user: null }));
+        }
+        
+        const userIdsStr = userIds.map((id: string) => `'${id}'`).join(',');
+        const users = await client.$queryRawUnsafe(`
+          SELECT 
+            id,
+            "telegramId",
+            "telegramUsername",
+            "telegramFirstName",
+            "telegramLastName",
+            phone,
+            email,
+            CASE WHEN role = 'customer' THEN 'client' ELSE role END as role,
+            status,
+            "createdAt"
+          FROM "User"
+          WHERE id IN (${userIdsStr})
+        `);
+        
+        const userMap = new Map((users as any[]).map((u: any) => [u.id, u]));
+        
+        return orders.map((order: any) => ({
+          ...order,
+          user: order.userId ? userMap.get(order.userId) || null : null,
+        }));
+      }
+      throw error;
+    }
   }
 
   async findOne(id: string) {

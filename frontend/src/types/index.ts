@@ -2,7 +2,7 @@
 // TYPES - Все типы данных согласно Prisma схеме
 // ============================================
 
-export type UserRole = 'client' | 'barista' | 'manager' | 'franchisee' | 'staff_uk' | 'superadmin';
+export type UserRole = 'client' | 'customer' | 'barista' | 'manager' | 'franchisee' | 'staff_uk' | 'superadmin';
 export type UserStatus = 'active' | 'blocked' | 'deactivated';
 export type LocationStatus = 'active' | 'inactive' | 'closed' | 'pending';
 export type ProductStatus = 'active' | 'inactive' | 'pending_moderation' | 'rejected';

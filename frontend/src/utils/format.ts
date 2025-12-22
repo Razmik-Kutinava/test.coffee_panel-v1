@@ -94,6 +94,7 @@ export const paymentStatusLabels: Record<string, string> = {
 
 export const userRoleLabels: Record<string, string> = {
   client: 'Клиент',
+  customer: 'Клиент',
   barista: 'Бариста',
   manager: 'Управляющий',
   franchisee: 'Партнёр',

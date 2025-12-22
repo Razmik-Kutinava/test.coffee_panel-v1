@@ -20,7 +20,13 @@ export default function Users(props: UsersProps) {
   const filteredUsers = createMemo(() => {
     let users = props.users || [];
     if (filterRole()) {
-      users = users.filter((u) => u.role === filterRole());
+      // Обрабатываем 'client' и 'customer' как одно и то же
+      const role = filterRole();
+      if (role === 'client') {
+        users = users.filter((u) => u.role === 'client' || u.role === 'customer');
+      } else {
+        users = users.filter((u) => u.role === role);
+      }
     }
     if (filterStatus()) {
       users = users.filter((u) => u.status === filterStatus());
@@ -31,7 +37,7 @@ export default function Users(props: UsersProps) {
   const stats = createMemo(() => ({
     total: (props.users || []).length,
     active: (props.users || []).filter((u) => u.status === 'active').length,
-    clients: (props.users || []).filter((u) => u.role === 'client').length,
+    clients: (props.users || []).filter((u) => u.role === 'client' || u.role === 'customer').length,
     staff: (props.users || []).filter((u) => u.role !== 'client').length,
   }));
 

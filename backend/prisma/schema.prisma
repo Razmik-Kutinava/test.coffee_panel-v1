@@ -514,6 +514,7 @@ model AuditLog {
 // ============================================
 enum UserRole {
   client
+  customer
   barista
   manager
   franchisee
