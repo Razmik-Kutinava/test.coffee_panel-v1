@@ -16,48 +16,47 @@ export class UsersService {
 
   async findAll(role?: string, status?: string) {
     const client = await this.prisma.client();
-    try {
-      return await client.user.findMany({
-        where: {
-          ...(role ? { role: role as any } : {}),
-          ...(status ? { status: status as any } : {}),
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          _count: {
-            select: {
-              orders: true,
-            },
-          },
-        },
-      });
-    } catch (error: any) {
-      // Временная защита: если ошибка связана с ролью 'customer' в enum
-      if (error.message?.includes("Value 'customer' not found in enum 'UserRole'")) {
-        // Используем raw SQL для обхода проблемы с enum
-        const roleFilter = role ? `AND role = '${role === 'customer' ? 'client' : role}'` : '';
-        const statusFilter = status ? `AND status = '${status}'` : '';
-        
-        const users = await client.$queryRawUnsafe(`
-          SELECT 
-            u.*,
-            (SELECT COUNT(*) FROM "Order" WHERE "userId" = u.id) as "orders_count"
-          FROM "User" u
-          WHERE 1=1 ${roleFilter} ${statusFilter}
-          ORDER BY u."createdAt" DESC
-        `);
-        
-        // Преобразуем результат и нормализуем роль 'customer' -> 'client'
-        return (users as any[]).map((user: any) => ({
-          ...user,
-          role: user.role === 'customer' ? 'client' : user.role,
-          _count: {
-            orders: Number(user.orders_count) || 0,
-          },
-        }));
-      }
-      throw error;
-    }
+    
+    // Используем raw SQL для обхода проблемы с enum 'customer' не найден в 'UserRole'
+    // Prisma Client валидирует enum на клиентской стороне, поэтому try-catch не помогает
+    const roleFilter = role ? `AND role::text = '${role === 'customer' ? 'client' : role}'` : '';
+    const statusFilter = status ? `AND status::text = '${status}'` : '';
+    
+    const users = await client.$queryRawUnsafe(`
+      SELECT 
+        u.id,
+        u."telegramId",
+        u."telegramUsername",
+        u."telegramFirstName",
+        u."telegramLastName",
+        u."telegramPhotoUrl",
+        u."telegramLanguageCode",
+        u.phone,
+        u.email,
+        CASE WHEN u.role::text = 'customer' THEN 'client' ELSE u.role::text END as role,
+        u.status::text as status,
+        u."preferredLocationId",
+        u."acceptsMarketing",
+        u."lastOrderAt",
+        u."totalOrdersCount",
+        u."totalOrdersAmount",
+        u."lastSeenAt",
+        u.metadata,
+        u."createdAt",
+        u."updatedAt",
+        (SELECT COUNT(*) FROM "Order" WHERE "userId" = u.id) as "orders_count"
+      FROM "User" u
+      WHERE 1=1 ${roleFilter} ${statusFilter}
+      ORDER BY u."createdAt" DESC
+    `);
+    
+    // Преобразуем результат
+    return (users as any[]).map((user: any) => ({
+      ...user,
+      _count: {
+        orders: Number(user.orders_count) || 0,
+      },
+    }));
   }
 
   async findOne(id: string) {
