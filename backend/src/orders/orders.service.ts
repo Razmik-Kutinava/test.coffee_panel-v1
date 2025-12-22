@@ -166,7 +166,11 @@ export class OrdersService {
       WHERE id IN (${userIdsStr})
     `);
     
-    const userMap = new Map((users as any[]).map((u: any) => [u.id, u]));
+    // Преобразуем BigInt в string для JSON сериализации
+    const userMap = new Map((users as any[]).map((u: any) => [u.id, {
+      ...u,
+      telegramId: u.telegramId ? u.telegramId.toString() : null,
+    }]));
     
     return orders.map((order: any) => ({
       ...order,

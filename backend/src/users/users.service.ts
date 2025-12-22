@@ -50,9 +50,11 @@ export class UsersService {
       ORDER BY u."createdAt" DESC
     `);
     
-    // Преобразуем результат
+    // Преобразуем результат, конвертируя BigInt в string для JSON сериализации
     return (users as any[]).map((user: any) => ({
       ...user,
+      telegramId: user.telegramId ? user.telegramId.toString() : null,
+      totalOrdersAmount: user.totalOrdersAmount ? user.totalOrdersAmount.toString() : '0',
       _count: {
         orders: Number(user.orders_count) || 0,
       },
