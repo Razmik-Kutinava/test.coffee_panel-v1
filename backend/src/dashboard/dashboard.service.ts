@@ -25,10 +25,11 @@ export class DashboardService {
         startDate = new Date(now.setHours(0, 0, 0, 0));
     }
 
+    // Считаем выручку по оплаченным заказам (status: paid, accepted, preparing, ready, completed)
     const where = {
       ...(locationId ? { locationId } : {}),
       createdAt: { gte: startDate },
-      paymentStatus: 'succeeded' as const,
+      status: { in: ['paid', 'accepted', 'preparing', 'ready', 'completed'] as any[] },
     };
 
     const [totalRevenue, totalOrders, ordersData, newCustomers] = await Promise.all([
@@ -82,9 +83,10 @@ export class DashboardService {
   async getTopProducts(locationId?: string, limit: number = 5) {
     const client = await this.prisma.client();
     
+    // Считаем топ товаров по оплаченным заказам
     const where = {
       ...(locationId ? { locationId } : {}),
-      paymentStatus: 'succeeded' as const,
+      status: { in: ['paid', 'accepted', 'preparing', 'ready', 'completed'] as any[] },
       createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     };
 
@@ -146,7 +148,7 @@ export class DashboardService {
             where: {
               locationId: loc.id,
               createdAt: { gte: todayStart },
-              paymentStatus: 'succeeded',
+              status: { in: ['paid', 'accepted', 'preparing', 'ready', 'completed'] as any[] },
             },
             _sum: { totalAmount: true },
           }),
@@ -197,7 +199,7 @@ export class DashboardService {
     const todayWhere = {
       ...(locationId ? { locationId } : {}),
       createdAt: { gte: todayStart },
-      paymentStatus: 'succeeded' as const,
+      status: { in: ['paid', 'accepted', 'preparing', 'ready', 'completed'] as any[] },
     };
 
     const [todayRevenue, todayOrdersCount, todayOrdersData] = await Promise.all([
