@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { BigIntSerializerInterceptor } from './common/interceptors/bigint-serializer.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -9,6 +10,9 @@ async function bootstrap() {
 
   // Глобальный обработчик ошибок (должен быть первым!)
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Глобальный интерцептор для сериализации BigInt в строки
+  app.useGlobalInterceptors(new BigIntSerializerInterceptor());
 
   // Глобальная валидация DTO
   app.useGlobalPipes(
