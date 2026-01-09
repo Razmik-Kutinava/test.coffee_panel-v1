@@ -114,36 +114,173 @@ export class CategoriesService {
 
   async remove(id: string) {
     const client = await this.prisma.client();
-    const category = await client.category.findUnique({ where: { id } });
-    if (!category) throw new NotFoundException('Category not found');
-    
-    // Проверяем, есть ли связанные записи
-    const productsCount = await client.product.count({ where: { categoryId: id } });
-    if (productsCount > 0) {
-      throw new BadRequestException(`Невозможно удалить категорию: в ней ${productsCount} товаров`);
-    }
     
     try {
-      // Удаляем связи с локациями (LocationCategory)
-      await client.locationCategory.deleteMany({ where: { categoryId: id } });
-      
-      // Удаляем дочерние категории
-      await client.category.deleteMany({ where: { parentId: id } });
-      
-      return await client.category.delete({ where: { id } });
+      return await client.$transaction(async (tx) => {
+        // 1. Проверка существования и получение всех связей
+        const category = await tx.category.findUnique({
+          where: { id },
+          include: {
+            _count: {
+              select: {
+                products: true,
+                children: true,
+                locations: true,
+              },
+            },
+          },
+        });
+
+        if (!category) {
+          throw new NotFoundException('Category not found');
+        }
+
+        // 2. Проверка блокирующих связей
+        if (category._count.products > 0) {
+          throw new BadRequestException(
+            `Невозможно удалить категорию: в ней ${category._count.products} товаров`
+          );
+        }
+
+        // 3. Удаление зависимостей в правильном порядке
+        // Сначала удаляем связи с локациями
+        await tx.locationCategory.deleteMany({ where: { categoryId: id } });
+        
+        // Затем удаляем дочерние категории (рекурсивно)
+        // ВАЖНО: дочерние категории должны быть пустыми (без товаров)
+        const children = await tx.category.findMany({ where: { parentId: id } });
+        for (const child of children) {
+          const childProductsCount = await tx.product.count({ where: { categoryId: child.id } });
+          if (childProductsCount > 0) {
+            throw new BadRequestException(
+              `Невозможно удалить категорию: дочерняя категория "${child.name}" содержит ${childProductsCount} товаров`
+            );
+          }
+          // Удаляем связи дочерней категории с локациями
+          await tx.locationCategory.deleteMany({ where: { categoryId: child.id } });
+        }
+        
+        // Удаляем дочерние категории
+        await tx.category.deleteMany({ where: { parentId: id } });
+
+        // 4. Удаление основного объекта
+        return await tx.category.delete({ where: { id } });
+      }, {
+        timeout: 10000, // 10 секунд таймаут
+      });
     } catch (error: any) {
-      // Если ошибка связана с foreign key constraint
-      if (error.code === 'P2003' || error.message?.includes('Foreign key constraint') || error.message?.includes('foreign key')) {
-        throw new BadRequestException('Невозможно удалить категорию: она связана с другими записями');
-      }
-      // Если это уже BadRequestException, пробрасываем дальше
-      if (error instanceof BadRequestException) {
+      // Обработка известных исключений
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
-      // Для всех остальных ошибок логируем и пробрасываем
-      console.error('Error deleting category:', error);
-      throw error;
+
+      // Обработка Prisma ошибок
+      if (error.code === 'P2003') {
+        throw new BadRequestException(
+          'Невозможно удалить категорию: она связана с другими записями (нарушение внешнего ключа)'
+        );
+      }
+
+      if (error.code === 'P2025') {
+        throw new NotFoundException('Category not found');
+      }
+
+      // Логирование для отладки
+      console.error('Error deleting category:', {
+        id,
+        code: error.code,
+        message: error.message,
+        meta: error.meta,
+      });
+
+      throw new BadRequestException(
+        `Ошибка при удалении категории: ${error.message || 'Неизвестная ошибка'}`
+      );
     }
+  }
+
+  async forceDeleteByName(name: string) {
+    const client = await this.prisma.client();
+    
+    // Находим все категории с таким именем
+    const categories = await client.category.findMany({
+      where: { name: { contains: name, mode: 'insensitive' } },
+      include: {
+        _count: {
+          select: {
+            products: true,
+            children: true,
+            locations: true,
+          },
+        },
+      },
+    });
+
+    if (categories.length === 0) {
+      return { deleted: 0, message: `Категории с именем "${name}" не найдены` };
+    }
+
+    let deletedCount = 0;
+    const errors: string[] = [];
+
+    for (const category of categories) {
+      try {
+        await client.$transaction(async (tx) => {
+          // 1. Удаляем все товары из категории
+          const products = await tx.product.findMany({ where: { categoryId: category.id } });
+          for (const product of products) {
+            // Удаляем связи товара с модификаторами
+            await tx.productModifierGroup.deleteMany({ where: { productId: product.id } });
+            // Удаляем связи товара с локациями
+            await tx.locationProduct.deleteMany({ where: { productId: product.id } });
+            // Удаляем товары из заказов (orderItems)
+            await tx.orderItem.deleteMany({ where: { productId: product.id } });
+            // Удаляем сам товар
+            await tx.product.delete({ where: { id: product.id } });
+          }
+
+          // 2. Рекурсивно удаляем дочерние категории
+          const deleteChildren = async (parentId: string) => {
+            const children = await tx.category.findMany({ where: { parentId } });
+            for (const child of children) {
+              // Удаляем товары дочерней категории
+              const childProducts = await tx.product.findMany({ where: { categoryId: child.id } });
+              for (const product of childProducts) {
+                await tx.productModifierGroup.deleteMany({ where: { productId: product.id } });
+                await tx.locationProduct.deleteMany({ where: { productId: product.id } });
+                await tx.orderItem.deleteMany({ where: { productId: product.id } });
+                await tx.product.delete({ where: { id: product.id } });
+              }
+              // Рекурсивно удаляем внуков
+              await deleteChildren(child.id);
+              // Удаляем связи дочерней категории с локациями
+              await tx.locationCategory.deleteMany({ where: { categoryId: child.id } });
+              // Удаляем дочернюю категорию
+              await tx.category.delete({ where: { id: child.id } });
+            }
+          };
+          await deleteChildren(category.id);
+
+          // 3. Удаляем связи категории с локациями
+          await tx.locationCategory.deleteMany({ where: { categoryId: category.id } });
+          
+          // 4. Удаляем саму категорию
+          await tx.category.delete({ where: { id: category.id } });
+        }, { timeout: 30000 });
+        
+        deletedCount++;
+      } catch (error: any) {
+        errors.push(`Ошибка при удалении категории ${category.id} (${category.name}): ${error.message}`);
+        console.error(`Error force deleting category ${category.id}:`, error);
+      }
+    }
+
+    return {
+      deleted: deletedCount,
+      total: categories.length,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Удалено ${deletedCount} из ${categories.length} категорий с именем "${name}"`,
+    };
   }
 }
 

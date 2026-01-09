@@ -10,24 +10,37 @@ export class ProductsService {
 
   async create(dto: CreateProductDto) {
     const client = await this.prisma.client();
-    
-    // Проверяем, нет ли уже товара с таким именем (защита от дублирования)
-    const existingProduct = await client.product.findFirst({
-      where: {
-        name: dto.name,
-        status: ProductStatus.active,
-      },
-    });
-    
-    if (existingProduct) {
-      throw new BadRequestException(`Товар с именем "${dto.name}" уже существует`);
+
+    // Нормализуем categoryId: пустая строка, undefined или некорректный UUID -> null
+    let categoryId: string | null = null;
+
+    if (dto.categoryId) {
+      const trimmed = dto.categoryId.trim();
+      // Проверяем что это валидный UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (trimmed && uuidRegex.test(trimmed)) {
+        categoryId = trimmed;
+      }
     }
+
+    // Проверяем существование категории, если она указана
+    if (categoryId) {
+      const category = await client.category.findUnique({
+        where: { id: categoryId },
+      });
+      if (!category) {
+        throw new BadRequestException(`Категория с ID "${categoryId}" не найдена`);
+      }
+    }
+    
+    // Примечание: убрали проверку на дубликаты по имени,
+    // так как могут быть товары с одинаковым именем в разных категориях
     
     // Создаем товар в транзакции для атомарности
     const product = await client.product.create({
       data: {
         ...dto,
-        categoryId: dto.categoryId === '' ? null : dto.categoryId || null,
+        categoryId,
         status: dto.status ?? ProductStatus.active,
       },
     });
@@ -210,39 +223,73 @@ export class ProductsService {
 
   async remove(id: string) {
     const client = await this.prisma.client();
-    const product = await client.product.findUnique({ where: { id } });
-    if (!product) throw new NotFoundException('Product not found');
-    
-    // Проверяем, есть ли связанные записи
-    const orderItemsCount = await client.orderItem.count({ where: { productId: id } });
-    if (orderItemsCount > 0) {
-      throw new BadRequestException(`Невозможно удалить товар: он используется в ${orderItemsCount} заказах`);
-    }
     
     try {
-      // Удаляем связанные записи в правильном порядке
-      await client.productModifierGroup.deleteMany({ where: { productId: id } });
-      await client.locationProduct.deleteMany({ where: { productId: id } });
-      
-      // Удаляем сам товар
-      const deleted = await client.product.delete({ where: { id } });
-      return deleted;
+      return await client.$transaction(async (tx) => {
+        // 1. Проверка существования и получение всех связей
+        const product = await tx.product.findUnique({
+          where: { id },
+          include: {
+            _count: {
+              select: {
+                orderItems: true,
+                locations: true,
+                modifierGroups: true,
+              },
+            },
+          },
+        });
+
+        if (!product) {
+          throw new NotFoundException('Product not found');
+        }
+
+        // 2. Проверка блокирующих связей
+        if (product._count.orderItems > 0) {
+          throw new BadRequestException(
+            `Невозможно удалить товар: он используется в ${product._count.orderItems} заказах`
+          );
+        }
+
+        // 3. Удаление зависимостей в правильном порядке
+        await Promise.all([
+          tx.productModifierGroup.deleteMany({ where: { productId: id } }),
+          tx.locationProduct.deleteMany({ where: { productId: id } }),
+        ]);
+
+        // 4. Удаление основного объекта
+        return await tx.product.delete({ where: { id } });
+      }, {
+        timeout: 10000, // 10 секунд таймаут
+      });
     } catch (error: any) {
-      // Если ошибка связана с foreign key constraint
-      if (error.code === 'P2003' || error.message?.includes('Foreign key constraint') || error.message?.includes('foreign key')) {
-        throw new BadRequestException('Невозможно удалить товар: он связан с другими записями');
-      }
-      // Если это уже BadRequestException, пробрасываем дальше
-      if (error instanceof BadRequestException) {
+      // Обработка известных исключений
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
-      // Если товар уже удален (P2025)
+
+      // Обработка Prisma ошибок
+      if (error.code === 'P2003') {
+        throw new BadRequestException(
+          'Невозможно удалить товар: он связан с другими записями (нарушение внешнего ключа)'
+        );
+      }
+
       if (error.code === 'P2025') {
         throw new NotFoundException('Product not found');
       }
-      // Для всех остальных ошибок логируем и пробрасываем
-      console.error('Error deleting product:', error);
-      throw error;
+
+      // Логирование для отладки
+      console.error('Error deleting product:', {
+        id,
+        code: error.code,
+        message: error.message,
+        meta: error.meta,
+      });
+
+      throw new BadRequestException(
+        `Ошибка при удалении товара: ${error.message || 'Неизвестная ошибка'}`
+      );
     }
   }
 
@@ -384,3 +431,4 @@ export class ProductsService {
     };
   }
 }
+
