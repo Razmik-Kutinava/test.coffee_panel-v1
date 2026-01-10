@@ -1,0 +1,22 @@
+# Render Deploy Trigger
+# This file is used to trigger Render deployments
+# Last update: 2026-01-10 13:42 UTC
+
+Deploy ID: fix-image-upload-render-env
+Purpose: Add SUPABASE environment variables to Render deployment
+
+## Changes:
+- Added SUPABASE_URL to render.yaml
+- Added SUPABASE_SERVICE_KEY to render.yaml
+- This will enable image upload functionality on Render
+
+## Required Environment Variables on Render Dashboard:
+After this deployment, make sure to add these env vars in Render Dashboard:
+
+1. SUPABASE_URL = https://wntvxdgxzenehfzvorae.supabase.co
+2. SUPABASE_SERVICE_KEY = [your service role key from .env]
+
+## Test after deployment:
+curl -X POST https://test-coffee-panel-v1.onrender.com/products/upload-image -F "image=@test.jpg"
+
+Should return 200 OK with imageUrl in response.
