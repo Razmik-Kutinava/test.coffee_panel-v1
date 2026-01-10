@@ -717,7 +717,7 @@ export default function Catalog(props: CatalogProps) {
           setImagePreview(null);
         }}
         title={editingProduct() ? 'Редактировать продукт' : 'Новый продукт'}
-        size="lg"
+        size="md"
         footer={
           <div style={styles.modalFooter}>
             <Button variant="ghost" onClick={() => {
@@ -771,72 +771,117 @@ export default function Catalog(props: CatalogProps) {
               Изображение товара
             </label>
             <input
+              id="product-image-upload"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
               onChange={handleImageSelect}
               disabled={isUploadingImage()}
+              style={{ display: 'none' }}
+            />
+            <label
+              for="product-image-upload"
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
                 width: '100%',
-                padding: '8px 12px',
-                border: `1px solid ${theme.colors.border}`,
+                padding: '12px 16px',
+                border: `2px dashed ${theme.colors.border}`,
                 borderRadius: theme.radius.md,
                 background: theme.colors.bgInput,
-                color: theme.colors.textPrimary,
+                color: theme.colors.textSecondary,
                 fontSize: '14px',
+                fontWeight: 500,
                 cursor: isUploadingImage() ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                ':hover': {
+                  borderColor: theme.colors.primary,
+                  background: theme.colors.bgHover,
+                },
               }}
-            />
+              onMouseEnter={(e) => {
+                if (!isUploadingImage()) {
+                  e.currentTarget.style.borderColor = theme.colors.primary;
+                  e.currentTarget.style.background = theme.colors.bgHover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = theme.colors.border;
+                e.currentTarget.style.background = theme.colors.bgInput;
+              }}
+            >
+              <span style={{ fontSize: '20px' }}>📸</span>
+              <span>{selectedImage() ? 'Изменить изображение' : 'Выбрать изображение'}</span>
+              <span style={{ fontSize: '12px', color: theme.colors.textMuted }}>
+                (JPEG, PNG, WebP, GIF, до 5MB)
+              </span>
+            </label>
             <Show when={imagePreview() || (editingProduct() && editingProduct()!.imageUrl && prodForm().imageUrl !== '')}>
-              <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
-                <img
-                  src={imagePreview() || (editingProduct()?.imageUrl && prodForm().imageUrl !== '' ? editingProduct()!.imageUrl : '') || ''}
-                  alt="Preview"
-                  style={{
-                    maxWidth: '200px',
-                    maxHeight: '200px',
-                    borderRadius: theme.radius.md,
-                    objectFit: 'cover',
-                    border: `1px solid ${theme.colors.border}`,
-                  }}
-                />
+              <div style={{
+                marginTop: '12px',
+                padding: '12px',
+                background: theme.colors.bgHover,
+                borderRadius: theme.radius.md,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <img
+                    src={imagePreview() || (editingProduct()?.imageUrl && prodForm().imageUrl !== '' ? editingProduct()!.imageUrl : '') || ''}
+                    alt="Preview"
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: theme.radius.md,
+                      objectFit: 'cover',
+                      border: `2px solid ${theme.colors.border}`,
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Show when={selectedImage()}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: theme.colors.textPrimary, marginBottom: '4px' }}>
+                      {selectedImage()?.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: theme.colors.textMuted }}>
+                      {(selectedImage()!.size / 1024).toFixed(1)} KB
+                    </div>
+                  </Show>
+                  <Show when={!selectedImage() && editingProduct() && editingProduct()!.imageUrl}>
+                    <div style={{ fontSize: '12px', color: theme.colors.textSecondary }}>
+                      Текущее изображение
+                    </div>
+                  </Show>
+                </div>
                 <button
                   onClick={() => {
-                    // Удаляем новое выбранное изображение
                     setSelectedImage(null);
                     setImagePreview(null);
-                    // Очищаем imageUrl в форме для удаления существующего изображения
                     setProdForm({ ...prodForm(), imageUrl: '' });
                   }}
                   style={{
-                    position: 'absolute',
-                    top: '5px',
-                    right: '5px',
-                    background: 'rgba(255, 0, 0, 0.7)',
+                    flexShrink: 0,
+                    background: theme.colors.error,
                     color: 'white',
                     border: 'none',
-                    borderRadius: '50%',
-                    width: '24px',
-                    height: '24px',
+                    borderRadius: theme.radius.sm,
+                    width: '32px',
+                    height: '32px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    fontSize: '14px',
+                    fontSize: '16px',
+                    transition: 'opacity 0.2s ease',
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   title="Удалить изображение"
                 >
-                  ✕
+                  🗑️
                 </button>
-                <Show when={selectedImage()}>
-                  <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.textSecondary }}>
-                    Выбран файл: {selectedImage()?.name} ({(selectedImage()!.size / 1024).toFixed(1)} KB)
-                  </div>
-                </Show>
-                <Show when={!selectedImage() && editingProduct() && editingProduct()!.imageUrl}>
-                  <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.textSecondary }}>
-                    Текущее изображение товара
-                  </div>
-                </Show>
               </div>
             </Show>
             <Show when={isUploadingImage()}>
