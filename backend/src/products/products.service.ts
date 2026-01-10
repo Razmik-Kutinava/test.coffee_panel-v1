@@ -1,12 +1,16 @@
 ﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductStatus } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   async create(dto: CreateProductDto) {
     const client = await this.prisma.client();
@@ -189,6 +193,14 @@ export class ProductsService {
     const product = await client.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundException('Product not found');
     
+    // Если изображение изменилось, удаляем старое
+    if (dto.imageUrl && dto.imageUrl !== product.imageUrl && product.imageUrl) {
+      // Удаляем старое изображение асинхронно (не блокируем обновление)
+      this.storageService.deleteImage(product.imageUrl).catch((error) => {
+        console.error('Ошибка при удалении старого изображения:', error);
+      });
+    }
+    
     const updatedProduct = await client.product.update({
       where: { id },
       data: {
@@ -257,7 +269,15 @@ export class ProductsService {
           tx.locationProduct.deleteMany({ where: { productId: id } }),
         ]);
 
-        // 4. Удаление основного объекта
+        // 4. Удаление изображения из Storage (если есть)
+        if (product.imageUrl) {
+          // Удаляем асинхронно, не блокируем удаление товара
+          this.storageService.deleteImage(product.imageUrl).catch((error) => {
+            console.error('Ошибка при удалении изображения товара:', error);
+          });
+        }
+
+        // 5. Удаление основного объекта
         return await tx.product.delete({ where: { id } });
       }, {
         timeout: 10000, // 10 секунд таймаут

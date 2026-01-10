@@ -27,7 +27,7 @@ export default function Catalog(props: CatalogProps) {
   // Forms
   const [catForm, setCatForm] = createSignal({ name: '', description: '', sortOrder: 0 });
   const [prodForm, setProdForm] = createSignal({ 
-    name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false 
+    name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false, imageUrl: '' 
   });
   const [modForm, setModForm] = createSignal({ 
     name: '', type: 'single', required: false, minSelect: 0, maxSelect: 1 
@@ -35,6 +35,11 @@ export default function Catalog(props: CatalogProps) {
   const [modifierOptions, setModifierOptions] = createSignal<Array<{ id?: string; name: string; price: number; isDefault: boolean }>>([]);
   const [selectedProducts, setSelectedProducts] = createSignal<string[]>([]);
   const [productSelectValue, setProductSelectValue] = createSignal<string>('');
+  
+  // Состояния для работы с изображениями
+  const [selectedImage, setSelectedImage] = createSignal<File | null>(null);
+  const [imagePreview, setImagePreview] = createSignal<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = createSignal(false);
 
   const submitCategory = async () => {
     try {
@@ -57,25 +62,140 @@ export default function Catalog(props: CatalogProps) {
 
   const [isSubmittingProduct, setIsSubmittingProduct] = createSignal(false);
   
+  // Обработчик выбора файла изображения
+  const handleImageSelect = (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      // Валидация типа файла
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        props.showToast('err', '❌ Неподдерживаемый тип файла. Используйте: JPEG, PNG, WebP или GIF');
+        return;
+      }
+      
+      // Валидация размера (макс 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        props.showToast('err', `❌ Файл слишком большой: ${(file.size / 1024 / 1024).toFixed(2)}MB. Максимум: 5MB`);
+        return;
+      }
+      
+      setSelectedImage(file);
+      
+      // Создаем превью
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Загрузка изображения на сервер
+  const uploadImage = async (file: File): Promise<string> => {
+    setIsUploadingImage(true);
+    try {
+      const response = await api.uploadProductImage(file);
+      return response.imageUrl;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+  
   const submitProduct = async () => {
     if (isSubmittingProduct()) return; // Защита от двойного клика
     
     try {
       setIsSubmittingProduct(true);
       const editing = editingProduct();
+      
+      // Нормализуем данные перед отправкой
+      const formData = { ...prodForm() };
+      
+      // Валидация названия
+      if (!formData.name || formData.name.trim().length < 2) {
+        props.showToast('err', '❌ Название должно быть минимум 2 символа');
+        setIsSubmittingProduct(false);
+        return;
+      }
+      
+      // Валидация цены
+      formData.price = Number(formData.price) || 0;
+      if (formData.price <= 0) {
+        props.showToast('err', '❌ Цена должна быть больше 0');
+        setIsSubmittingProduct(false);
+        return;
+      }
+      
+      // Нормализуем название (убираем лишние пробелы)
+      formData.name = formData.name.trim();
+      
+      // Загружаем изображение, если оно выбрано
+      if (selectedImage()) {
+        try {
+          const imageUrl = await uploadImage(selectedImage()!);
+          formData.imageUrl = imageUrl;
+        } catch (error: any) {
+          props.showToast('err', `❌ Ошибка загрузки изображения: ${error.message}`);
+          setIsSubmittingProduct(false);
+          return;
+        }
+      } else if (editing && editing.imageUrl && formData.imageUrl !== '') {
+        // Сохраняем существующее изображение, если новое не выбрано и изображение не было удалено
+        formData.imageUrl = editing.imageUrl;
+      }
+      // Если formData.imageUrl === '', это означает, что пользователь удалил изображение
+      
+      // Проверяем, что categoryId - это UUID, а не название категории
+      // Если это название, находим ID по названию
+      if (formData.categoryId && formData.categoryId.trim() !== '') {
+        // Проверяем, является ли это UUID (формат: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(formData.categoryId)) {
+          // Это не UUID, ищем категорию по названию
+          const category = props.categories?.find(c => c.name === formData.categoryId);
+          if (category) {
+            formData.categoryId = category.id;
+          } else {
+            // Если категория не найдена, очищаем categoryId
+            formData.categoryId = '';
+          }
+        }
+      } else {
+        formData.categoryId = '';
+      }
+      
       if (editing) {
-        await api.updateProduct(editing.id, { ...prodForm(), price: Number(prodForm().price) });
+        await api.updateProduct(editing.id, formData);
         props.showToast('ok', '✅ Продукт обновлён');
       } else {
-        await api.createProduct({ ...prodForm(), price: Number(prodForm().price) });
+        await api.createProduct(formData);
         props.showToast('ok', '✅ Продукт создан');
       }
-      setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false });
+      
+      // Очищаем форму
+      setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false, imageUrl: '' });
+      setSelectedImage(null);
+      setImagePreview(null);
       setEditingProduct(null);
       setShowModal(null);
       props.onRefresh();
     } catch (e: any) {
-      props.showToast('err', `❌ ${e?.message || 'Ошибка'}`);
+      // Парсим сообщение об ошибке
+      let errorMessage = 'Ошибка при создании товара';
+      if (e?.message) {
+        if (typeof e.message === 'string') {
+          errorMessage = e.message;
+        } else if (typeof e.message === 'object' && e.message.message) {
+          if (Array.isArray(e.message.message)) {
+            errorMessage = e.message.message.join(', ');
+          } else {
+            errorMessage = e.message.message;
+          }
+        }
+      }
+      props.showToast('err', `❌ ${errorMessage}`);
     } finally {
       setIsSubmittingProduct(false);
     }
@@ -299,7 +419,15 @@ export default function Catalog(props: CatalogProps) {
       status: product.status || 'active',
       isFeatured: product.isFeatured || false,
       isNew: product.isNew || false,
+      imageUrl: product.imageUrl || '',
     });
+    // Устанавливаем превью текущего изображения, если оно есть
+    if (product.imageUrl) {
+      setImagePreview(product.imageUrl);
+    } else {
+      setImagePreview(null);
+    }
+    setSelectedImage(null); // Сбрасываем выбранный файл
     setShowModal('product');
   };
 
@@ -358,7 +486,28 @@ export default function Catalog(props: CatalogProps) {
             <For each={props.products || []}>
               {(product) => (
                 <div style={styles.listItem}>
-                  <div style={styles.itemImage}>☕</div>
+                  <div style={styles.itemImage}>
+                    <Show when={product.imageUrl} fallback={<span>☕</span>}>
+                      <img
+                        src={product.imageUrl!}
+                        alt={product.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          borderRadius: theme.radius.md,
+                        }}
+                        onError={(e) => {
+                          // Если изображение не загрузилось, показываем иконку
+                          e.currentTarget.style.display = 'none';
+                          const parent = e.currentTarget.parentElement;
+                          if (parent && !parent.querySelector('span')) {
+                            parent.innerHTML = '<span>☕</span>';
+                          }
+                        }}
+                      />
+                    </Show>
+                  </div>
                   <div style={styles.itemContent}>
                     <div style={styles.itemHeader}>
                       <span style={styles.itemTitle}>{product.name}</span>
@@ -563,7 +712,9 @@ export default function Catalog(props: CatalogProps) {
         onClose={() => {
           setShowModal(null);
           setEditingProduct(null);
-          setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false });
+          setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false, imageUrl: '' });
+          setSelectedImage(null);
+          setImagePreview(null);
         }}
         title={editingProduct() ? 'Редактировать продукт' : 'Новый продукт'}
         size="lg"
@@ -572,10 +723,12 @@ export default function Catalog(props: CatalogProps) {
             <Button variant="ghost" onClick={() => {
               setShowModal(null);
               setEditingProduct(null);
-              setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false });
+              setProdForm({ name: '', description: '', price: 0, categoryId: '', status: 'active', isFeatured: false, isNew: false, imageUrl: '' });
+              setSelectedImage(null);
+              setImagePreview(null);
             }}>Отмена</Button>
-            <Button onClick={submitProduct} disabled={!prodForm().name || !prodForm().price || isSubmittingProduct()}>
-              {isSubmittingProduct() ? 'Создание...' : editingProduct() ? 'Сохранить' : 'Создать'}
+            <Button onClick={submitProduct} disabled={!prodForm().name || !prodForm().price || Number(prodForm().price) <= 0 || isSubmittingProduct() || isUploadingImage()}>
+              {isSubmittingProduct() || isUploadingImage() ? (isUploadingImage() ? 'Загрузка изображения...' : 'Создание...') : editingProduct() ? 'Сохранить' : 'Создать'}
             </Button>
           </div>
         }
@@ -611,6 +764,88 @@ export default function Catalog(props: CatalogProps) {
             value={prodForm().description}
             onInput={(v) => setProdForm({ ...prodForm(), description: v })}
           />
+          
+          {/* Поле для загрузки изображения */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: theme.colors.textPrimary }}>
+              Изображение товара
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              disabled={isUploadingImage()}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.radius.md,
+                background: theme.colors.bgInput,
+                color: theme.colors.textPrimary,
+                fontSize: '14px',
+                cursor: isUploadingImage() ? 'not-allowed' : 'pointer',
+              }}
+            />
+            <Show when={imagePreview() || (editingProduct() && editingProduct()!.imageUrl && prodForm().imageUrl !== '')}>
+              <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
+                <img
+                  src={imagePreview() || (editingProduct()?.imageUrl && prodForm().imageUrl !== '' ? editingProduct()!.imageUrl : '') || ''}
+                  alt="Preview"
+                  style={{
+                    maxWidth: '200px',
+                    maxHeight: '200px',
+                    borderRadius: theme.radius.md,
+                    objectFit: 'cover',
+                    border: `1px solid ${theme.colors.border}`,
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    // Удаляем новое выбранное изображение
+                    setSelectedImage(null);
+                    setImagePreview(null);
+                    // Очищаем imageUrl в форме для удаления существующего изображения
+                    setProdForm({ ...prodForm(), imageUrl: '' });
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '5px',
+                    right: '5px',
+                    background: 'rgba(255, 0, 0, 0.7)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                  }}
+                  title="Удалить изображение"
+                >
+                  ✕
+                </button>
+                <Show when={selectedImage()}>
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.textSecondary }}>
+                    Выбран файл: {selectedImage()?.name} ({(selectedImage()!.size / 1024).toFixed(1)} KB)
+                  </div>
+                </Show>
+                <Show when={!selectedImage() && editingProduct() && editingProduct()!.imageUrl}>
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.textSecondary }}>
+                    Текущее изображение товара
+                  </div>
+                </Show>
+              </div>
+            </Show>
+            <Show when={isUploadingImage()}>
+              <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.primary }}>
+                ⏳ Загрузка изображения...
+              </div>
+            </Show>
+          </div>
+          
           <div style={styles.checkboxRow}>
             <label style={styles.checkbox}>
               <input

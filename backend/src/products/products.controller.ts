@@ -1,12 +1,29 @@
-﻿import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+﻿import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ProductsService } from './products.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductStatus } from '@prisma/client';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly storageService: StorageService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateProductDto) {
@@ -67,5 +84,28 @@ export class ProductsController {
   @Post('sync-modifiers')
   async syncModifiers() {
     return this.productsService.syncAllModifiers();
+  }
+
+  @Post('upload-image')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Файл не был загружен');
+    }
+
+    const imageUrl = await this.storageService.uploadImage(file);
+
+    return {
+      imageUrl,
+      filename: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype,
+    };
   }
 }

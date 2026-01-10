@@ -15,6 +15,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { BaristaModule } from './barista/barista.module';
 import { TVBoardModule } from './tv-board/tv-board.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { TVBoardModule } from './tv-board/tv-board.module';
     DashboardModule,
     BaristaModule,
     TVBoardModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

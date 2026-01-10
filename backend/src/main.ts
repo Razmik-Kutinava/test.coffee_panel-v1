@@ -39,6 +39,8 @@ async function bootstrap() {
     credentials: false,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    // Разрешаем загрузку файлов
+    exposedHeaders: ['Content-Disposition'],
   });
 
   const logger = new Logger('Bootstrap');

@@ -48,5 +48,10 @@ export class ModifierGroupsController {
   ) {
     return this.modifierGroupsService.unlinkFromProduct(groupId, productId);
   }
+
+  @Delete('force/all')
+  forceDeleteAll() {
+    return this.modifierGroupsService.forceDeleteAll();
+  }
 }
 

@@ -21,8 +21,39 @@ export async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T>
   }
   
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || res.statusText);
+    let errorMessage = res.statusText;
+    try {
+      const errorData = await res.json();
+      // NestJS возвращает ошибки в формате { message: string } или { message: object }
+      if (errorData.message) {
+        if (Array.isArray(errorData.message)) {
+          errorMessage = errorData.message.join(', ');
+        } else if (typeof errorData.message === 'object') {
+          // Если message - объект (например, Prisma ошибка)
+          if (errorData.message.error) {
+            errorMessage = errorData.message.error;
+            if (errorData.message.details) {
+              errorMessage += ': ' + errorData.message.details;
+            }
+          } else {
+            errorMessage = JSON.stringify(errorData.message);
+          }
+        } else {
+          errorMessage = errorData.message;
+        }
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch (e) {
+      // Если не удалось распарсить JSON, пробуем получить текст
+      try {
+        const text = await res.text();
+        if (text) errorMessage = text;
+      } catch (textError) {
+        // Игнорируем ошибку парсинга текста
+      }
+    }
+    throw new Error(errorMessage);
   }
   return res.json();
 }
@@ -110,6 +141,19 @@ export const api = {
     fetchJSON<Product>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteProduct: (id: string) => 
     fetchJSON(`/products/${id}`, { method: 'DELETE' }),
+  uploadProductImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch(`${apiBase}/products/upload-image`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Ошибка загрузки изображения' }));
+      throw new Error(error.message || 'Ошибка загрузки изображения');
+    }
+    return res.json();
+  },
 
   // Categories
   createCategory: (data: Partial<Category>) => 

@@ -31,5 +31,10 @@ export class CategoriesController {
   remove(@Param('id') id: string) {
     return this.categoriesService.remove(id);
   }
+
+  @Delete('force/by-name/:name')
+  forceDeleteByName(@Param('name') name: string) {
+    return this.categoriesService.forceDeleteByName(name);
+  }
 }
 
