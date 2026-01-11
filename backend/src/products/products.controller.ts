@@ -36,6 +36,26 @@ export class ProductsController {
   // ⚠️ ВАЖНО: Маршрут upload-image должен быть ПЕРВЫМ перед всеми остальными
   // Это гарантирует, что запросы на /products/upload-image не попадут в динамический :id маршрут
   
+  // Специальный endpoint для проверки конфигурации Supabase (только для отладки)
+  @Get('storage-status')
+  checkStorageStatus() {
+    const hasSupabaseUrl = !!process.env.SUPABASE_URL;
+    const hasSupabaseKey = !!process.env.SUPABASE_SERVICE_KEY;
+    const isConfigured = this.storageService.isConfigured();
+
+    this.logger.log(`Storage Status Check: URL=${hasSupabaseUrl}, KEY=${hasSupabaseKey}, Configured=${isConfigured}`);
+
+    return {
+      configured: isConfigured,
+      hasSupabaseUrl,
+      hasSupabaseKey,
+      supabaseUrl: hasSupabaseUrl ? process.env.SUPABASE_URL : 'NOT SET',
+      message: isConfigured
+        ? 'Supabase Storage настроен корректно'
+        : 'Supabase Storage НЕ настроен. Проверьте переменные окружения SUPABASE_URL и SUPABASE_SERVICE_KEY',
+    };
+  }
+
   @Options('upload-image')
   handleUploadImageOptions() {
     this.logger.log('OPTIONS /products/upload-image - Preflight запрос');

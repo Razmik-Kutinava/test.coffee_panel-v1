@@ -154,14 +154,34 @@ export const api = {
       body: formData,
     });
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ message: 'Ошибка загрузки изображения' }));
-      console.error('❌ Ошибка загрузки:', { 
-        status: res.status, 
-        statusText: res.statusText, 
-        error,
-        url: `${apiBase}/products/upload-image`,
-      });
-      throw new Error(error.message || `Ошибка ${res.status}: ${res.statusText}`);
+      let errorMessage = 'Ошибка загрузки изображения';
+      try {
+        const errorData = await res.json();
+        console.error('❌ Ошибка загрузки:', {
+          status: res.status,
+          statusText: res.statusText,
+          errorData,
+          url: `${apiBase}/products/upload-image`,
+        });
+
+        // Извлекаем сообщение об ошибке из разных форматов
+        if (errorData.message) {
+          if (typeof errorData.message === 'string') {
+            errorMessage = errorData.message;
+          } else if (Array.isArray(errorData.message)) {
+            errorMessage = errorData.message.join(', ');
+          } else if (typeof errorData.message === 'object' && errorData.message.message) {
+            errorMessage = errorData.message.message;
+          }
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (e) {
+        console.error('❌ Не удалось распарсить ошибку:', e);
+        errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
     const result = await res.json();
     console.log('✅ Изображение успешно загружено:', result);
