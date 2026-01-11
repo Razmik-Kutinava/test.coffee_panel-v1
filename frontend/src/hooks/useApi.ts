@@ -142,6 +142,9 @@ export const api = {
   deleteProduct: (id: string) => 
     fetchJSON(`/products/${id}`, { method: 'DELETE' }),
   uploadProductImage: async (file: File) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/591d0845-0350-4c40-8a2d-46d6cbed8569',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:144',message:'uploadProductImage entry',data:{fileName:file.name,fileSize:file.size,fileType:file.type,apiBase},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     console.log('📤 Отправка POST запроса на /products/upload-image', {
       fileName: file.name,
       fileSize: file.size,
@@ -149,14 +152,26 @@ export const api = {
     });
     const formData = new FormData();
     formData.append('image', file);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/591d0845-0350-4c40-8a2d-46d6cbed8569',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:152',message:'Before fetch request',data:{url:`${apiBase}/products/upload-image`,method:'POST',hasFormData:true,formDataKeys:Array.from(formData.keys())},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     const res = await fetch(`${apiBase}/products/upload-image`, {
       method: 'POST',
       body: formData,
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/591d0845-0350-4c40-8a2d-46d6cbed8569',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:156',message:'After fetch request',data:{status:res.status,statusText:res.statusText,ok:res.ok,contentType:res.headers.get('content-type')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (!res.ok) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/591d0845-0350-4c40-8a2d-46d6cbed8569',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:157',message:'Response not OK',data:{status:res.status,statusText:res.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       let errorMessage = 'Ошибка загрузки изображения';
       try {
         const errorData = await res.json();
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/591d0845-0350-4c40-8a2d-46d6cbed8569',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:160',message:'Error data parsed',data:{errorMessage:errorData.message,errorStatus:errorData.statusCode,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         console.error('❌ Ошибка загрузки:', {
           status: res.status,
           statusText: res.statusText,

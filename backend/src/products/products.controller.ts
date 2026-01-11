@@ -20,7 +20,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { Request } from 'express';
 import { ProductsService } from './products.service';
 import { StorageService } from '../storage/storage.service';
-import { debugLog } from '../common/utils/debug-logger';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductStatus } from '@prisma/client';
@@ -80,51 +79,19 @@ export class ProductsController {
     }),
   )
   async uploadImage(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
-    // #region agent log
-    debugLog('products.controller.ts:76', 'uploadImage method called', {
-      method: req.method,
-      path: req.path,
-      url: req.url,
-      contentType: req.headers['content-type'],
-      contentLength: req.headers['content-length'],
-      hasFile: !!file,
-      fileFieldName: file?.fieldname,
-      fileOriginalName: file?.originalname,
-      fileSize: file?.size,
-      fileMimeType: file?.mimetype,
-      hasBuffer: !!file?.buffer,
-      bufferLength: file?.buffer?.length || 0,
-    }, 'E');
-    // #endregion
-    // #region agent log
-    debugLog('products.controller.ts:75', 'uploadImage entry', {method:req.method,path:req.path,url:req.url,hasFile:!!file,contentType:req.headers['content-type']}, 'E');
-    // #endregion
     this.logger.log(`📥 Incoming request: method=${req.method}, path=${req.path}, url=${req.url}`);
     this.logger.log(`POST /products/upload-image - Получен запрос на загрузку изображения`);
-    
+
     if (!file) {
-      // #region agent log
-      debugLog('products.controller.ts:80', 'File not received', {hasFile:false,contentType:req.headers['content-type']}, 'E');
-      // #endregion
       this.logger.error('❌ Файл не был загружен. Проверьте, что поле формы называется "image"');
       throw new BadRequestException('Файл не был загружен. Убедитесь, что поле формы называется "image"');
     }
 
-    // #region agent log
-    debugLog('products.controller.ts:84', 'File received details', {fileName:file.originalname,fileSize:file.size,fileMimeType:file.mimetype,hasBuffer:!!file.buffer,bufferLength:file.buffer?.length||0,fieldName:file.fieldname}, 'E');
-    // #endregion
-
     this.logger.log(`File received: filename=${file.originalname}, size=${file.size} bytes, mimetype=${file.mimetype}, buffer=${file.buffer ? `present (${file.buffer.length} bytes)` : 'missing'}`);
 
     try {
-      // #region agent log
-      debugLog('products.controller.ts:87', 'Before storageService.uploadImage', {fileName:file.originalname,storageServiceConfigured:this.storageService.isConfigured()}, 'A');
-      // #endregion
       this.logger.log(`📤 Загрузка изображения в Supabase Storage: ${file.originalname}`);
       const imageUrl = await this.storageService.uploadImage(file);
-      // #region agent log
-      debugLog('products.controller.ts:90', 'After storageService.uploadImage success', {imageUrl,imageUrlLength:imageUrl?.length||0}, 'A');
-      // #endregion
       this.logger.log(`✅ Изображение успешно загружено: ${imageUrl}`);
 
       return {
