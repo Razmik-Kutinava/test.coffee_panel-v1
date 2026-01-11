@@ -134,18 +134,30 @@ export default function Catalog(props: CatalogProps) {
       // Загружаем изображение, если оно выбрано
       if (selectedImage()) {
         try {
+          console.log('📤 Загрузка изображения...', { fileName: selectedImage()?.name, size: selectedImage()?.size });
           const imageUrl = await uploadImage(selectedImage()!);
+          console.log('✅ Изображение загружено успешно:', imageUrl);
           formData.imageUrl = imageUrl;
         } catch (error: any) {
+          console.error('❌ Ошибка загрузки изображения:', error);
           props.showToast('err', `❌ Ошибка загрузки изображения: ${error.message}`);
           setIsSubmittingProduct(false);
           return;
         }
-      } else if (editing && editing.imageUrl && formData.imageUrl !== '') {
-        // Сохраняем существующее изображение, если новое не выбрано и изображение не было удалено
-        formData.imageUrl = editing.imageUrl;
+      } else if (editing) {
+        // При редактировании: если imageUrl в форме пустая строка, это означает удаление
+        // Если imageUrl не установлен в форме, сохраняем существующее (если есть)
+        if (formData.imageUrl === '') {
+          // Пользователь удалил изображение
+          formData.imageUrl = '';
+          console.log('🗑️ Изображение будет удалено');
+        } else if (formData.imageUrl === undefined && editing.imageUrl) {
+          // Сохраняем существующее изображение, если новое не выбрано и не было удалено
+          formData.imageUrl = editing.imageUrl;
+          console.log('💾 Сохраняем существующее изображение:', editing.imageUrl);
+        }
       }
-      // Если formData.imageUrl === '', это означает, что пользователь удалил изображение
+      // При создании нового товара без изображения, imageUrl остается undefined (не передаем в API)
       
       // Проверяем, что categoryId - это UUID, а не название категории
       // Если это название, находим ID по названию
@@ -166,11 +178,26 @@ export default function Catalog(props: CatalogProps) {
         formData.categoryId = '';
       }
       
+      // Подготавливаем данные для отправки
+      // При создании: если imageUrl не установлен, не передаем его вообще (undefined)
+      // При обновлении: если imageUrl пустая строка, передаем её для удаления
+      const payload: any = { ...formData };
+      if (!editing && !payload.imageUrl) {
+        // При создании без изображения - не передаем imageUrl
+        delete payload.imageUrl;
+      }
+      
+      console.log('📤 Отправка данных товара:', {
+        ...payload,
+        imageUrl: payload.imageUrl || '(не передается)',
+        isEditing: !!editing,
+      });
+      
       if (editing) {
-        await api.updateProduct(editing.id, formData);
+        await api.updateProduct(editing.id, payload);
         props.showToast('ok', '✅ Продукт обновлён');
       } else {
-        await api.createProduct(formData);
+        await api.createProduct(payload);
         props.showToast('ok', '✅ Продукт создан');
       }
       

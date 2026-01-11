@@ -44,7 +44,18 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
-  imageUrl?: string;
+  @Transform(({ value }) => {
+    // Преобразуем пустую строку в null для опционального поля
+    if (value === '' || value === null || value === undefined) {
+      return null;
+    }
+    // Проверяем, что это валидный URL (базовая проверка)
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    return null;
+  })
+  imageUrl?: string | null;
 
   @IsOptional()
   isFeatured?: boolean;

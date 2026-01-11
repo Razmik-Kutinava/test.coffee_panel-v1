@@ -142,6 +142,11 @@ export const api = {
   deleteProduct: (id: string) => 
     fetchJSON(`/products/${id}`, { method: 'DELETE' }),
   uploadProductImage: async (file: File) => {
+    console.log('📤 Отправка POST запроса на /products/upload-image', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+    });
     const formData = new FormData();
     formData.append('image', file);
     const res = await fetch(`${apiBase}/products/upload-image`, {
@@ -150,9 +155,17 @@ export const api = {
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: 'Ошибка загрузки изображения' }));
-      throw new Error(error.message || 'Ошибка загрузки изображения');
+      console.error('❌ Ошибка загрузки:', { 
+        status: res.status, 
+        statusText: res.statusText, 
+        error,
+        url: `${apiBase}/products/upload-image`,
+      });
+      throw new Error(error.message || `Ошибка ${res.status}: ${res.statusText}`);
     }
-    return res.json();
+    const result = await res.json();
+    console.log('✅ Изображение успешно загружено:', result);
+    return result;
   },
 
   // Categories

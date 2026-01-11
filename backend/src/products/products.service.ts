@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -7,6 +7,8 @@ import { ProductStatus } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
@@ -40,14 +42,28 @@ export class ProductsService {
     // Примечание: убрали проверку на дубликаты по имени,
     // так как могут быть товары с одинаковым именем в разных категориях
     
+    // Нормализуем imageUrl: пустая строка или undefined -> null
+    // После Transform в DTO, imageUrl может быть null, строкой, или undefined
+    const imageUrl = dto.imageUrl === '' || dto.imageUrl === undefined || dto.imageUrl === null 
+      ? null 
+      : dto.imageUrl.trim();
+    
+    this.logger.log(`Создание товара: name=${dto.name}, imageUrl=${imageUrl || '(null)'}, categoryId=${categoryId || '(null)'}, dto.imageUrl=${dto.imageUrl || '(undefined/null)'}`);
+    
+    // Извлекаем imageUrl из dto, чтобы не передавать его дважды в spread
+    const { imageUrl: _, ...dtoWithoutImageUrl } = dto;
+    
     // Создаем товар в транзакции для атомарности
     const product = await client.product.create({
       data: {
-        ...dto,
+        ...dtoWithoutImageUrl,
         categoryId,
+        imageUrl: imageUrl || null, // Явно устанавливаем null если пусто
         status: dto.status ?? ProductStatus.active,
       },
     });
+    
+    this.logger.log(`✅ Товар создан: id=${product.id}, imageUrl=${product.imageUrl || '(null)'}`);
 
     // Получаем все активные локации
     const locations = await client.location.findMany({
@@ -193,21 +209,58 @@ export class ProductsService {
     const product = await client.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundException('Product not found');
     
-    // Если изображение изменилось, удаляем старое
-    if (dto.imageUrl && dto.imageUrl !== product.imageUrl && product.imageUrl) {
-      // Удаляем старое изображение асинхронно (не блокируем обновление)
-      this.storageService.deleteImage(product.imageUrl).catch((error) => {
-        console.error('Ошибка при удалении старого изображения:', error);
-      });
+    this.logger.log(`Обновление товара: id=${id}, текущий imageUrl=${product.imageUrl || '(null)'}, новый imageUrl=${dto.imageUrl !== undefined ? (dto.imageUrl || '(пустая строка)') : '(не передан)'}`);
+    
+    // Нормализуем imageUrl: пустая строка -> null, undefined -> не трогаем
+    let imageUrl: string | null | undefined = undefined;
+    if (dto.imageUrl !== undefined) {
+      if (dto.imageUrl === '') {
+        // Пользователь удалил изображение - очищаем и удаляем файл из Storage
+        imageUrl = null;
+        this.logger.log(`🗑️ Удаление изображения товара: ${product.imageUrl}`);
+        if (product.imageUrl) {
+          this.storageService.deleteImage(product.imageUrl).catch((error) => {
+            this.logger.error('Ошибка при удалении старого изображения:', error);
+          });
+        }
+      } else if (dto.imageUrl && dto.imageUrl !== product.imageUrl) {
+        // Заменили изображение - удаляем старое из Storage
+        imageUrl = dto.imageUrl;
+        this.logger.log(`🔄 Замена изображения: старое=${product.imageUrl}, новое=${dto.imageUrl}`);
+        if (product.imageUrl) {
+          this.storageService.deleteImage(product.imageUrl).catch((error) => {
+            this.logger.error('Ошибка при удалении старого изображения:', error);
+          });
+        }
+      } else {
+        // Изображение не изменилось или остается таким же
+        imageUrl = dto.imageUrl;
+        this.logger.log(`💾 Изображение не изменено: ${dto.imageUrl}`);
+      }
+    } else {
+      this.logger.log(`⏭️ imageUrl не передан, оставляем текущее значение: ${product.imageUrl || '(null)'}`);
+    }
+    
+    // Подготавливаем данные для обновления
+    const updateData: any = {
+      ...dto,
+      categoryId: dto.categoryId === '' ? null : (dto.categoryId || undefined),
+    };
+    
+    // Добавляем imageUrl только если он был изменен
+    if (imageUrl !== undefined) {
+      updateData.imageUrl = imageUrl;
+      this.logger.log(`📝 imageUrl будет установлен в: ${imageUrl || '(null)'}`);
+    } else {
+      this.logger.log(`⏭️ imageUrl не будет изменен`);
     }
     
     const updatedProduct = await client.product.update({
       where: { id },
-      data: {
-        ...dto,
-        categoryId: dto.categoryId === '' ? null : (dto.categoryId || undefined),
-      },
+      data: updateData,
     });
+    
+    this.logger.log(`✅ Товар обновлен: id=${updatedProduct.id}, imageUrl=${updatedProduct.imageUrl || '(null)'}`);
 
     // Если название товара изменилось, обновляем его во всех LocationProduct
     // Временно отключено - поле name еще не добавлено в БД

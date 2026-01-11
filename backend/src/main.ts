@@ -3,9 +3,10 @@ import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { BigIntSerializerInterceptor } from './common/interceptors/bigint-serializer.interceptor';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const port = process.env.PORT ?? 3001;
 
   // Глобальный обработчик ошибок (должен быть первым!)
@@ -14,7 +15,14 @@ async function bootstrap() {
   // Глобальный интерцептор для сериализации BigInt в строки
   app.useGlobalInterceptors(new BigIntSerializerInterceptor());
 
-  // Глобальная валидация DTO
+  // Middleware для логирования всех входящих запросов
+  app.use((req, res, next) => {
+    const logger = new Logger('Request');
+    logger.log(`${req.method} ${req.path} - URL: ${req.url} - Headers: ${JSON.stringify(req.headers)}`);
+    next();
+  });
+
+  // Глобальная валидация DTO (с исключением для multipart/form-data)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Удаляет свойства, которых нет в DTO
@@ -23,6 +31,9 @@ async function bootstrap() {
       transformOptions: {
         enableImplicitConversion: true,
       },
+      skipMissingProperties: false,
+      skipNullProperties: false,
+      skipUndefinedProperties: false,
     }),
   );
 
@@ -37,10 +48,17 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins,
     credentials: false,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    // Разрешаем загрузку файлов
-    exposedHeaders: ['Content-Disposition'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS', 'PUT'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept',
+      'X-Requested-With',
+      'Access-Control-Allow-Origin',
+    ],
+    // Разрешаем загрузку файлов - не указываем Content-Type в allowedHeaders для multipart/form-data
+    exposedHeaders: ['Content-Disposition', 'Content-Type'],
+    maxAge: 3600, // Кеширование preflight запросов на 1 час
   });
 
   const logger = new Logger('Bootstrap');
